@@ -335,6 +335,10 @@ button:focus-visible {
 }
 
 .grid {
+  --u: var(--grid-font-size, 14px); /* base unit: column widths and header height are multiples of it */
+  /* Every size below is in em, so the whole table scales with the font size from Settings. */
+  font-family: var(--grid-font, inherit);
+  font-size: var(--grid-font-size, 14px);
   border-collapse: separate;
   border-spacing: 0;
   font-variant-numeric: tabular-nums;
@@ -345,8 +349,8 @@ button:focus-visible {
 .grid td {
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  padding: 0 6px;
-  height: 30px;
+  padding: 0 0.43em;
+  height: 2.15em;
   white-space: nowrap;
   background: var(--surface);
 }
@@ -360,17 +364,18 @@ button:focus-visible {
 
 .grid .dayRow th {
   top: 0;
-  height: 40px;
+  height: calc(var(--u) * 2.85);
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.86em;
 }
 
 .grid .totalsRow th {
-  top: 40px;
+  /* Sits right under the day row (2.85em of the table font size). */
+  top: calc(var(--u) * 2.85);
   background: var(--surface-2);
   border-bottom: 2px solid var(--border-strong);
-  font-size: 13px;
+  font-size: 0.93em;
   color: var(--text);
 }
 
@@ -378,18 +383,18 @@ button:focus-visible {
   position: sticky;
   left: 0;
   z-index: 1;
-  width: 110px;
-  min-width: 110px;
+  width: calc(var(--u) * 7.85);
+  min-width: calc(var(--u) * 7.85);
   text-align: left;
 }
 
 .grid .summaryCol {
   position: sticky;
-  left: 110px;
+  left: calc(var(--u) * 7.85); /* = width of the key column */
   z-index: 1;
-  width: 340px;
-  min-width: 340px;
-  max-width: 340px;
+  width: calc(var(--u) * 24.3);
+  min-width: calc(var(--u) * 24.3);
+  max-width: calc(var(--u) * 24.3);
   text-align: left;
   border-right: 2px solid var(--border-strong);
 }
@@ -402,7 +407,7 @@ button:focus-visible {
 .grid .totalsRow .summaryCol {
   font-weight: 500;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.86em;
 }
 
 .grid td.summaryCol {
@@ -439,27 +444,27 @@ tr:hover .unpin {
 
 .keyCol .source {
   display: block;
-  font-size: 10px;
+  font-size: 0.72em;
   line-height: 1;
   color: var(--muted);
-  margin-top: -3px;
+  margin-top: -0.2em;
 }
 
 .grid .dayCol {
-  width: 46px;
-  min-width: 46px;
+  width: calc(var(--u) * 3.3);
+  min-width: calc(var(--u) * 3.3);
   text-align: center;
 }
 
 .dayRow .dayNum {
   display: block;
-  font-size: 13px;
+  font-size: 1.08em;
   color: var(--text);
 }
 
 .dayRow .dayName {
   display: block;
-  font-size: 10px;
+  font-size: 0.83em;
   font-weight: 500;
   text-transform: uppercase;
 }
@@ -495,8 +500,8 @@ tr:hover .unpin {
 }
 
 .grid .totalCol {
-  width: 64px;
-  min-width: 64px;
+  width: calc(var(--u) * 4.6);
+  min-width: calc(var(--u) * 4.6);
   text-align: right;
   font-weight: 600;
   border-left: 2px solid var(--border-strong);
@@ -539,8 +544,9 @@ tr:hover .unpin {
 
 .cell .editor {
   width: 100%;
-  height: 26px;
-  padding: 0 3px;
+  height: 1.85em;
+  padding: 0 0.2em;
+  font: inherit;
   text-align: center;
   border: 0;
   border-radius: 0;

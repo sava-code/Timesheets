@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { ChevronLeft, ChevronRight, LoaderCircle, Plus, RefreshCw, Search, UserRound, X } from "lucide-react";
 import { api, errorText } from "./api";
+import { tableFontStack } from "./fonts";
 import type { AppData, MonthResult, Worklog } from "./types";
 import { currentMonth, formatDuration, monthDays, monthLabel, parseDuration, shiftMonth, todayKey } from "./time";
 import {
@@ -111,7 +112,19 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
     void load(month);
   }, [month, sourcesSignature, load]);
 
-  const allRows = useMemo(() => buildRows(result, data.pinnedIssues), [result, data.pinnedIssues]);
+  const builtRows = useMemo(() => buildRows(result, data.pinnedIssues), [result, data.pinnedIssues]);
+  // Rows are sorted by total (most time first) when the month loads or the issue list changes,
+  // but not after every edit, so the row you are typing in doesn't jump away.
+  const builtIdsSignature = builtRows.map((row) => row.id).sort().join(",");
+  const order = useMemo(
+    () => new Map(builtRows.map((row, index) => [row.id, index])),
+    // builtRows is already sorted by total; recompute the order only on reload or a new/removed row.
+    [loadCount, builtIdsSignature]
+  );
+  const allRows = useMemo(
+    () => [...builtRows].sort((a, b) => (order.get(a.id) ?? 1e9) - (order.get(b.id) ?? 1e9)),
+    [builtRows, order]
+  );
   const filter = settings.filters.find((item) => item.id === filterId) || null;
   const rowIdsSignature = allRows.map((row) => row.id).join(",");
   const matchKey = filter ? `${filter.id}|${filter.jql}|${loadCount}|${rowIdsSignature}` : "";
@@ -489,6 +502,12 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
         className={loading ? "gridWrap loading" : "gridWrap"}
         ref={gridRef}
         tabIndex={0}
+        style={
+          {
+            "--grid-font": tableFontStack(settings.tableFont),
+            "--grid-font-size": `${settings.tableFontSize}px`
+          } as CSSProperties
+        }
         onKeyDown={onGridKeyDown}
         aria-label="Timesheet grid. Use arrow keys to move, type a value to edit."
       >

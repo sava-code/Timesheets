@@ -51,8 +51,9 @@ const result: MonthResult = {
 describe("buildRows", () => {
   const rows = buildRows(result, [{ sourceId: "a", key: "INT-1" }]);
 
-  it("keeps one row per source and issue, sorted by project then number", () => {
-    expect(rows.map((row) => row.id)).toEqual(["a:INT-1", "a:SUP-9", "b:SUP-9", "a:SUP-10"]);
+  it("keeps one row per source and issue, most logged time first", () => {
+    // 2h, 1.5h, 15m, then the pinned issue with no time.
+    expect(rows.map((row) => row.id)).toEqual(["a:SUP-10", "a:SUP-9", "b:SUP-9", "a:INT-1"]);
   });
 
   it("groups worklogs by day and totals them", () => {
@@ -63,10 +64,10 @@ describe("buildRows", () => {
   });
 
   it("sends keys per source to a JQL filter and filters by its matches", () => {
-    expect(keysBySource(rows)).toEqual({ a: ["INT-1", "SUP-9", "SUP-10"], b: ["SUP-9"] });
+    expect(keysBySource(rows)).toEqual({ a: ["SUP-10", "SUP-9", "INT-1"], b: ["SUP-9"] });
     // The same key in another Jira only matches there.
     const matched = matchedRowIds({ a: ["INT-1"], b: ["SUP-9"] });
-    expect(filterRows(rows, matched, "").map((row) => row.id)).toEqual(["a:INT-1", "b:SUP-9"]);
+    expect(filterRows(rows, matched, "").map((row) => row.id)).toEqual(["b:SUP-9", "a:INT-1"]);
     expect(filterRows(rows, new Set(), "")).toHaveLength(0);
   });
 

@@ -35,6 +35,10 @@ export interface Settings {
   showWeekends: boolean;
   displayFormat: DisplayFormat;
   theme: Theme;
+  /** Id from TABLE_FONTS. */
+  tableFont: string;
+  /** Pixels. */
+  tableFontSize: number;
   filters: FilterGroup[];
   jiraConnections: JiraConnection[];
 }

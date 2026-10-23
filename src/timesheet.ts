@@ -27,6 +27,11 @@ export function compareRows(a: Row, b: Row): number {
   );
 }
 
+/** Most logged time first; equal totals keep the project/number order. */
+export function compareRowsByTotal(a: Row, b: Row): number {
+  return b.total - a.total || compareRows(a, b);
+}
+
 export function buildRows(result: MonthResult | null, pinned: PinnedIssue[]): Row[] {
   if (!result) return [];
   const pinnedIds = new Set(pinned.map((item) => rowId(item.sourceId, item.key)));
@@ -53,7 +58,7 @@ export function buildRows(result: MonthResult | null, pinned: PinnedIssue[]): Ro
     }
   }
 
-  return [...rows.values()].sort(compareRows);
+  return [...rows.values()].sort(compareRowsByTotal);
 }
 
 /** Issue keys of each Jira source, as sent to a JQL filter. */

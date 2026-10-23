@@ -13,6 +13,8 @@ Jira is the only source of truth. Each cell shows your own logged time on one is
 - **Extra issues.** Each source can have an optional JQL (for example `filter = worklogs`) to list issues before you have logged time on them. You can also add any issue by key; it stays in the list until you remove it.
 - **JQL filters.** Quick filter chips, each defined by a label and a JQL (e.g. `project in (SUP, OPS)`, `labels = support`, `component = Billing`). Selecting one shows the timesheet issues that match it in Jira. There is also a text search.
 - **Daily norm.** The daily totals row is green when a past working day reaches the norm, amber when it is short and red when it is empty. The header shows hours logged, the norm to date and the month norm.
+- **Sorted by time.** Issues with the most logged time in the month come first. The order is set when the month loads or refreshes, so rows don't jump while you type.
+- **Table font and size** are adjustable in Settings; the whole table scales with the size.
 - **Light or dark theme**, or follow the system setting (Settings → Timesheet → Theme). Decimal hours are shown with one decimal; the cell editor shows the exact value.
 - **Activity log** with every change sent to Jira and any error.
 - **Credentials** are encrypted with the OS keychain (Electron `safeStorage`). The app refuses to store them as plain text.

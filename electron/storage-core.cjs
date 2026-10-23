@@ -28,6 +28,8 @@ function defaultData() {
       showWeekends: false,
       displayFormat: "decimal",
       theme: "system",
+      tableFont: "system",
+      tableFontSize: 14,
       filters: [],
       jiraConnections: [defaultConnection(0)]
     },
@@ -95,6 +97,11 @@ function normalizePinned(pinned) {
   return result;
 }
 
+function clampFontSize(value) {
+  const size = Math.round(Number(value));
+  return Number.isFinite(size) && size >= 10 && size <= 24 ? size : 14;
+}
+
 function mergeDefaults(data) {
   const defaults = defaultData();
   const settings = { ...defaults.settings, ...(data?.settings || {}) };
@@ -107,6 +114,8 @@ function mergeDefaults(data) {
       showWeekends: Boolean(settings.showWeekends),
       displayFormat: settings.displayFormat === "jira" ? "jira" : "decimal",
       theme: ["light", "dark"].includes(settings.theme) ? settings.theme : "system",
+      tableFont: /^[a-z0-9-]{1,32}$/.test(String(settings.tableFont)) ? String(settings.tableFont) : "system",
+      tableFontSize: clampFontSize(settings.tableFontSize),
       filters: Array.isArray(settings.filters) ? settings.filters.map(normalizeFilter) : [],
       jiraConnections:
         Array.isArray(settings.jiraConnections) && settings.jiraConnections.length

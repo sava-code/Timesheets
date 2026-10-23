@@ -1,6 +1,6 @@
 {
   "name": "jira-timesheets-desktop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "Desktop app for viewing and editing your monthly Jira worklogs in a spreadsheet-like grid.",
   "author": "mixaxa85",

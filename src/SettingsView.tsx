@@ -3,6 +3,7 @@ import { CheckCircle2, LoaderCircle, Plus, Save, Trash2, XCircle } from "lucide-
 import { api, errorText } from "./api";
 import type { AppData, AppInfo, FilterGroup, JiraConnection, Settings, Theme } from "./types";
 import { applyTheme } from "./theme";
+import { TABLE_FONT_SIZES, TABLE_FONTS, tableFontStack } from "./fonts";
 
 interface Props {
   data: AppData;
@@ -307,6 +308,33 @@ export function SettingsView({ data, onSaved }: Props) {
               <option value="system">Same as system</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
+            </select>
+          </label>
+          <label>
+            Table font
+            <select
+              value={draft.tableFont}
+              style={{ fontFamily: tableFontStack(draft.tableFont) }}
+              onChange={(event) => setDraft({ ...draft, tableFont: event.target.value })}
+            >
+              {TABLE_FONTS.map((font) => (
+                <option key={font.id} value={font.id} style={{ fontFamily: font.stack }}>
+                  {font.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Table font size
+            <select
+              value={draft.tableFontSize}
+              onChange={(event) => setDraft({ ...draft, tableFontSize: Number(event.target.value) })}
+            >
+              {TABLE_FONT_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}px{size === 14 ? " (default)" : ""}
+                </option>
+              ))}
             </select>
           </label>
           <label>

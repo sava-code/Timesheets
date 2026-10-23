@@ -120,6 +120,45 @@ describe("Timesheet grid", () => {
     expect(document.documentElement.dataset.theme).toBe("dark");
   });
 
+  it("sorts by total time and keeps the order while editing", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("INT-15");
+    const order = () => [...document.querySelectorAll("tbody td.keyCol a")].map((link) => link.textContent);
+    const totals = () => [...document.querySelectorAll("tbody td.totalCol")].map((cell) => Number(cell.textContent || 0));
+    const before = order();
+    const sorted = totals();
+    expect(sorted).toEqual([...sorted].sort((a, b) => b - a));
+
+    // Add lots of time to the last row: it stays in place until the next refresh.
+    const last = before[before.length - 1]!;
+    const day = workingDayKey();
+    const rowId = document.querySelector(`a[title^="Open ${last} "]`)!.closest("tr")!.querySelector("[data-cell]")!.getAttribute("data-cell")!.split("|")[0];
+    await user.click(cell(rowId, day));
+    await user.keyboard("20{Enter}");
+    await waitFor(() => expect(cell(rowId, day)).toHaveTextContent(/\d/));
+    expect(order()).toEqual(before);
+
+    await user.click(screen.getByRole("button", { name: /refresh/i }));
+    await waitFor(() => expect(order()[0]).toBe(last));
+  });
+
+  it("applies the table font and size from Settings", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("INT-15");
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.selectOptions(await screen.findByLabelText("Table font"), "mono");
+    await user.selectOptions(screen.getByLabelText("Table font size"), "18");
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    await screen.findByText("INT-15");
+    const grid = document.querySelector<HTMLElement>(".gridWrap")!;
+    expect(grid.style.getPropertyValue("--grid-font-size")).toBe("18px");
+    expect(grid.style.getPropertyValue("--grid-font")).toMatch(/monospace/);
+  });
+
   it("filters rows with a JQL filter", async () => {
     const user = userEvent.setup();
     const match = vi.spyOn(window.timesheets, "matchFilter");

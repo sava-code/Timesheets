@@ -66,6 +66,8 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
       showWeekends: false,
       displayFormat: "decimal",
       theme: "system",
+      tableFont: "system",
+      tableFontSize: 14,
       filters: [
         { id: "f1", label: "Support", jql: "project = SUP" },
         { id: "f2", label: "Implementation", jql: "project = IMPL" },
