@@ -263,11 +263,18 @@ button:focus-visible {
   margin-left: 4px;
 }
 
-/* Chips | JQL search | Find issue. The JQL search starts exactly at the Summary column's right
-   border: the chips column is as wide as Key + Summary (+1px for the table frame). */
+/* Chips | JQL search | Find issue.
+   - The chips column is at least as wide as Key + Summary (+1px for the table frame), so by default
+     the JQL search starts at the Summary column's right border.
+   - More chips widen that column on one line and shorten the JQL search, down to the width of
+     "Find issue"; past that the chips wrap. */
 .filters {
+  --search-width: 220px;
   display: grid;
-  grid-template-columns: calc(1px + var(--grid-font-size, 14px) * 32.15) minmax(0, 1fr) auto;
+  grid-template-columns:
+    minmax(calc(1px + var(--grid-font-size, 14px) * 32.15), max-content)
+    minmax(var(--search-width), 1fr)
+    auto;
   align-items: center;
   column-gap: 0;
 }
@@ -277,7 +284,9 @@ button:focus-visible {
   min-width: 0;
 }
 
-.jqlSearch {
+/* The JQL search and "Find issue" share one style */
+.jqlSearch,
+.search {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -289,28 +298,23 @@ button:focus-visible {
   min-width: 0;
 }
 
-.jqlSearch input {
+.jqlSearch input,
+.search input {
   flex: 1;
+  min-width: 0;
   border: 0;
   padding: 5px 0;
   background: transparent;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-  min-width: 0;
 }
 
-.jqlSearch input:focus {
+.jqlSearch input:focus,
+.search input:focus {
   outline: none;
 }
 
-.jqlSearch:focus-within,
-.jqlSearch.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
-}
-
-.jqlSearch.active {
-  color: var(--accent);
+.search {
+  width: var(--search-width);
+  margin-left: 10px;
 }
 
 .chips {
@@ -332,29 +336,6 @@ button:focus-visible {
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
-}
-
-.search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 10px;
-  padding: 0 8px;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--muted);
-}
-
-.search input {
-  border: 0;
-  padding: 5px 0;
-  width: 180px;
-  background: transparent;
-}
-
-.search input:focus {
-  outline: none;
 }
 
 .gridWrap {

@@ -546,7 +546,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
           <input
             value={searchDraft}
             aria-label="Jira JQL search"
-            placeholder="Jira JQL search, e.g. project = SUP AND updated >= -14d · Enter to run"
+            placeholder="Jira JQL"
             spellCheck={false}
             onChange={(event) => setSearchDraft(event.target.value)}
             onKeyDown={(event) => {
