@@ -68,15 +68,6 @@ ipcMain.handle("jira:fetchMonth", async (_event, month) => {
     connections.map(async (connection) => {
       try {
         const result = await jira.fetchSourceMonth(connection, month);
-        const known = new Set(result.issues.map((issue) => issue.key));
-        const pinned = data.pinnedIssues.filter((item) => item.sourceId === connection.id && !known.has(item.key));
-        for (const item of pinned) {
-          try {
-            result.issues.push(await jira.lookupIssue(connection, item.key));
-          } catch (error) {
-            errors.push({ sourceId: connection.id, sourceName: connection.name, message: `${item.key}: ${error.message}` });
-          }
-        }
         if (result.warning) {
           errors.push({ sourceId: connection.id, sourceName: connection.name, message: result.warning });
         }
@@ -96,14 +87,22 @@ ipcMain.handle("jira:fetchMonth", async (_event, month) => {
   return { month, sources, errors, configured: connections.length };
 });
 
-ipcMain.handle("jira:addIssue", async (_event, sourceId, issueKey) => {
-  const data = readRawData();
-  const issue = await jira.lookupIssue(findConnection(data, sourceId), issueKey);
-  if (!data.pinnedIssues.some((item) => item.sourceId === sourceId && item.key === issue.key)) {
-    data.pinnedIssues.push({ sourceId, key: issue.key });
-    writeRawData(data);
-  }
-  return { data: sanitizeData(data), issue };
+// Free JQL (search box or free filter): the issues it returns on every enabled source.
+ipcMain.handle("jira:searchIssues", async (_event, jql) => {
+  const connections = activeConnections(readRawData());
+  const sources = [];
+  const errors = [];
+  await Promise.all(
+    connections.map(async (connection) => {
+      try {
+        const result = await jira.searchIssues(connection, jql);
+        sources.push({ sourceId: connection.id, sourceName: connection.name, ...result });
+      } catch (error) {
+        errors.push({ sourceId: connection.id, sourceName: connection.name, message: error.message });
+      }
+    })
+  );
+  return { sources, errors };
 });
 
 // Runs a filter JQL on each source, limited to the issues currently in the timesheet.

@@ -1,27 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
-import { ChevronLeft, ChevronRight, LoaderCircle, Plus, RefreshCw, Search, UserRound, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Code2, LoaderCircle, RefreshCw, Search, UserRound, X } from "lucide-react";
 import { api, errorText } from "./api";
 import { tableFontStack } from "./fonts";
-import type { AppData, MonthResult, Worklog } from "./types";
+import type { AppData, Issue, MonthResult, SearchResult, Worklog } from "./types";
 import { currentMonth, formatDuration, monthDays, monthLabel, parseDuration, shiftMonth, todayKey } from "./time";
 import {
+  baseSources,
   buildRows,
   cellSeconds,
+  freeSources,
   dayTotals,
   filterRows,
   keysBySource,
   matchedRowIds,
   MIN_WORKLOG_SECONDS,
   planCellEdit,
-  rowId,
   updateSourceWorklogs,
   visibleDays,
-  type Row
+  type SourceRows
 } from "./timesheet";
 
 interface Props {
   data: AppData;
-  onDataChange: (data: AppData) => void;
   onOpenSettings: () => void;
 }
 
@@ -40,20 +40,38 @@ interface LogEntry {
 const cellId = (cell: Cell) => `${cell.row}|${cell.day}`;
 const EDIT_START = /^[0-9.,:hm]$/i;
 
+/** Adds an issue to a source of the month result if it isn't there (e.g. first worklog on a JQL-search issue). */
+function withIssue(result: MonthResult, sourceId: string, issue: Issue): MonthResult {
+  return {
+    ...result,
+    sources: result.sources.map((source) =>
+      source.sourceId === sourceId && !source.issues.some((item) => item.key === issue.key)
+        ? { ...source, issues: [...source.issues, issue] }
+        : source
+    )
+  };
+}
+
 function shortDate(key: string) {
   const [, m, d] = key.split("-").map(Number);
   return new Date(2000, m - 1, d).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
 
-export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
+export function TimesheetView({ data, onOpenSettings }: Props) {
   const { settings } = data;
   const format = settings.displayFormat;
   const [month, setMonth] = useState(currentMonth());
   const [result, setResult] = useState<MonthResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [filterId, setFilterId] = useState("all");
-  // Rows matched by the selected JQL filter. `key` says which filter, JQL, issue list and load it belongs to.
-  const [filterMatch, setFilterMatch] = useState<{ key: string; ids: Set<string> } | null>(null);
+  // Narrowing filter: rows of the base list that match its JQL (ids null = could not be applied).
+  const [filterMatch, setFilterMatch] = useState<{ key: string; ids: Set<string> | null } | null>(null);
+  // JQL search box: what is typed, and what was last run with Enter/Refresh.
+  const [searchDraft, setSearchDraft] = useState("");
+  const [searchJql, setSearchJql] = useState("");
+  // Issues returned by the free JQL in use (search box or free filter).
+  const [freeResult, setFreeResult] = useState<{ key: string; search: SearchResult } | null>(null);
+  const lastSources = useRef<SourceRows[]>([]);
   const [loadCount, setLoadCount] = useState(0);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Cell | null>(null);
@@ -61,9 +79,6 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [log, setLog] = useState<LogEntry[]>([]);
   const [logOpen, setLogOpen] = useState(false);
-  const [addSource, setAddSource] = useState("");
-  const [addKey, setAddKey] = useState("");
-  const [adding, setAdding] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   // Mirrors `editing` synchronously so Enter/Tab/blur cannot commit the same edit twice.
   const editingRef = useRef<(Cell & { value: string; original: string }) | null>(null);
@@ -112,47 +127,97 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
     void load(month);
   }, [month, sourcesSignature, load]);
 
-  const builtRows = useMemo(() => buildRows(result, data.pinnedIssues), [result, data.pinnedIssues]);
-  // Rows are sorted by total (most time first) when the month loads or the issue list changes,
+  // Which JQL decides the rows:
+  // - the JQL search box, once run with Enter/Refresh (free: only its issues);
+  // - otherwise the selected chip: a free filter replaces the base list, a normal one narrows it.
+  const allChip = { id: "all", label: "All", ...settings.allFilter };
+  const chips = [allChip, ...settings.filters];
+  const chip = chips.find((item) => item.id === filterId) || allChip;
+  const freeJql = searchJql || (chip.free && chip.jql ? chip.jql : "");
+  const narrowJql = !searchJql && !chip.free && chip.jql ? chip.jql : "";
+  const freeLabel = searchJql ? "JQL search" : `Filter "${chip.label}"`;
+
+  const freeKey = freeJql && result ? `${freeJql}|${loadCount}` : "";
+  const freeReady = Boolean(freeKey && freeResult?.key === freeKey);
+
+  useEffect(() => {
+    if (!freeKey) return;
+    let cancelled = false;
+    api()
+      .searchIssues(freeJql)
+      .then((search) => {
+        if (cancelled) return;
+        // One Jira rejecting the JQL (e.g. unknown project there) is normal with several sources.
+        const level = search.sources.length ? "info" : "error";
+        for (const error of search.errors) addLog(level, `${freeLabel} · ${error.sourceName || error.sourceId}: ${error.message}`);
+        for (const source of search.sources) {
+          if (source.truncated) addLog("info", `${freeLabel} · ${source.sourceName}: showing the first ${source.issues.length} issues`);
+        }
+        setFreeResult({ key: freeKey, search });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        addLog("error", `${freeLabel}: ${errorText(error)}`);
+        setFreeResult({ key: freeKey, search: { sources: [], errors: [] } });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // freeKey captures the JQL and the month load it belongs to.
+  }, [freeKey]);
+
+  // While a new JQL runs, keep showing the previous rows (dimmed) instead of an empty table.
+  const readySources = useMemo(
+    () => (freeJql ? (freeReady && freeResult ? freeSources(result, freeResult.search) : null) : baseSources(result)),
+    [freeJql, freeReady, freeResult, result]
+  );
+  if (readySources) lastSources.current = readySources;
+  const shownSources = readySources ?? lastSources.current;
+
+  const builtRows = useMemo(() => buildRows(shownSources), [shownSources]);
+  // Rows are sorted by total (most time first) when the list loads or changes,
   // but not after every edit, so the row you are typing in doesn't jump away.
   const builtIdsSignature = builtRows.map((row) => row.id).sort().join(",");
   const order = useMemo(
     () => new Map(builtRows.map((row, index) => [row.id, index])),
-    // builtRows is already sorted by total; recompute the order only on reload or a new/removed row.
-    [loadCount, builtIdsSignature]
+    // builtRows is already sorted by total; recompute the order only when the list itself changes.
+    [loadCount, freeJql, builtIdsSignature]
   );
   const allRows = useMemo(
     () => [...builtRows].sort((a, b) => (order.get(a.id) ?? 1e9) - (order.get(b.id) ?? 1e9)),
     [builtRows, order]
   );
-  const filter = settings.filters.find((item) => item.id === filterId) || null;
+
   const rowIdsSignature = allRows.map((row) => row.id).join(",");
-  const matchKey = filter ? `${filter.id}|${filter.jql}|${loadCount}|${rowIdsSignature}` : "";
-  const filterReady = Boolean(filter && filterMatch?.key === matchKey);
-  const filterLoading = Boolean(filter) && allRows.length > 0 && !filterReady;
+  const matchKey = narrowJql ? `${chip.id}|${narrowJql}|${loadCount}|${rowIdsSignature}` : "";
+  const narrowReady = Boolean(matchKey && filterMatch?.key === matchKey);
+  const narrowLoading = Boolean(matchKey) && allRows.length > 0 && !narrowReady;
+  const freeLoading = Boolean(freeJql) && !freeReady;
   const rows = useMemo(
-    () => filterRows(allRows, filterReady && filterMatch ? filterMatch.ids : null, search),
-    [allRows, filterReady, filterMatch, search]
+    () => filterRows(allRows, narrowReady && filterMatch ? filterMatch.ids : null, search),
+    [allRows, narrowReady, filterMatch, search]
   );
 
   useEffect(() => {
-    if (!filter || !matchKey || !allRows.length) return;
+    if (!matchKey || !allRows.length) return;
     let cancelled = false;
+    const failed = (message: string) => {
+      addLog("error", `Filter "${chip.label}": ${message}`);
+      setFilterMatch({ key: matchKey, ids: null });
+      if (chip.id !== "all") setFilterId("all");
+    };
     api()
-      .matchFilter(filter.jql, keysBySource(allRows))
-      .then((result) => {
+      .matchFilter(narrowJql, keysBySource(allRows))
+      .then((match) => {
         if (cancelled) return;
-        if (result.errors.length) {
-          for (const error of result.errors) addLog("error", `Filter "${filter.label}" · ${error.sourceName || error.sourceId}: ${error.message}`);
-          setFilterId("all");
+        if (match.errors.length) {
+          failed(match.errors.map((error) => `${error.sourceName || error.sourceId}: ${error.message}`).join("; "));
           return;
         }
-        setFilterMatch({ key: matchKey, ids: matchedRowIds(result.matches) });
+        setFilterMatch({ key: matchKey, ids: matchedRowIds(match.matches) });
       })
       .catch((error) => {
-        if (cancelled) return;
-        addLog("error", `Filter "${filter.label}": ${errorText(error)}`);
-        setFilterId("all");
+        if (!cancelled) failed(errorText(error));
       });
     return () => {
       cancelled = true;
@@ -160,24 +225,44 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
     // matchKey captures every input that changes the answer.
   }, [matchKey]);
 
-  // Filters were removed or renamed in Settings.
+  // Filters were removed in Settings.
   useEffect(() => {
-    if (filterId !== "all" && !filter) setFilterId("all");
-  }, [filterId, filter]);
+    if (filterId !== "all" && !settings.filters.some((item) => item.id === filterId)) setFilterId("all");
+  }, [filterId, settings.filters]);
+
+  const selectChip = (id: string) => {
+    setFilterId(id);
+    setSearchDraft("");
+    setSearchJql("");
+  };
+
+  const runSearch = (jql: string) => {
+    const next = jql.trim();
+    setSearchDraft(next);
+    setSearchJql(next);
+  };
+
+  const refresh = () => {
+    // Refresh also runs whatever is typed in the JQL search box.
+    if (searchDraft.trim() !== searchJql) runSearch(searchDraft);
+    void load(month);
+  };
+
   const days = useMemo(() => visibleDays(month, allRows, settings.showWeekends), [month, allRows, settings.showWeekends]);
   const totals = useMemo(() => dayTotals(rows, days), [rows, days]);
   const filteredTotal = rows.reduce((sum, row) => sum + row.total, 0);
   const multiSource = (result?.sources.length || 0) > 1;
   const today = todayKey();
 
-  const monthTotal = allRows.reduce((sum, row) => sum + row.total, 0);
+  // Everything you logged this month, whatever the table currently shows.
+  const monthTotal = (result?.sources || []).reduce(
+    (sum, source) => sum + source.worklogs.reduce((inner, item) => inner + item.seconds, 0),
+    0
+  );
+  const fullView = !freeJql && !narrowJql && !search.trim();
   const workdays = monthDays(month).filter((day) => !day.isWeekend);
   const normSeconds = settings.dailyNormHours * 3600;
   const normToDate = workdays.filter((day) => day.key <= today).length * normSeconds;
-
-  useEffect(() => {
-    if (!addSource && activeSources[0]) setAddSource(activeSources[0].id);
-  }, [activeSources, addSource]);
 
   const rowById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
 
@@ -246,7 +331,11 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
       for (const op of ops) {
         if (op.kind === "create") {
           const created = await api().createWorklog(sourceId, { issueKey: key, date: cell.day, seconds: op.seconds });
-          setResult((current) => current && updateSourceWorklogs(current, sourceId, (list) => [...list, { ...created, date: cell.day }]));
+          setResult(
+            (current) =>
+              current &&
+              updateSourceWorklogs(withIssue(current, sourceId, row.issue), sourceId, (list) => [...list, { ...created, date: cell.day }])
+          );
         } else if (op.kind === "update") {
           const updated = await api().updateWorklog(sourceId, {
             issueKey: key,
@@ -359,63 +448,9 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
     }
   };
 
-  const unpin = async (row: Row) => {
-    const next = {
-      ...data,
-      pinnedIssues: data.pinnedIssues.filter((item) => rowId(item.sourceId, item.key) !== row.id)
-    };
-    try {
-      onDataChange(await api().saveData(next));
-      setResult((current) =>
-        current && {
-          ...current,
-          sources: current.sources.map((source) =>
-            source.sourceId === row.issue.sourceId
-              ? { ...source, issues: source.issues.filter((issue) => issue.key !== row.issue.key) }
-              : source
-          )
-        }
-      );
-      addLog("info", `${row.issue.key} removed from the list`);
-    } catch (error) {
-      addLog("error", errorText(error));
-    }
-  };
-
-  const addIssue = async () => {
-    const key = addKey.trim().toUpperCase();
-    if (!key || !addSource) return;
-    setAdding(true);
-    try {
-      const { data: nextData, issue } = await api().addIssue(addSource, key);
-      onDataChange(nextData);
-      setResult((current) => {
-        if (!current) return current;
-        return {
-          ...current,
-          sources: current.sources.map((source) =>
-            source.sourceId === addSource && !source.issues.some((item) => item.key === issue.key)
-              ? { ...source, issues: [...source.issues, issue] }
-              : source
-          )
-        };
-      });
-      setAddKey("");
-      setFilterId("all");
-      setSearch("");
-      const day = days.find((item) => item.key === today) || days[0];
-      if (day) setSelected({ row: rowId(addSource, issue.key), day: day.key });
-      addLog("ok", `${issue.key} added: ${issue.summary}`);
-    } catch (error) {
-      addLog("error", `${key}: ${errorText(error)}`);
-    } finally {
-      setAdding(false);
-    }
-  };
-
   const totalClass = (dayKey: string, isWeekend: boolean, seconds: number) => {
-    // The norm applies to the whole day, not to a filtered subset of issues.
-    if (filter || search.trim() || isWeekend || dayKey > today) return "";
+    // The norm applies to the whole day, so colour only when the table shows all of your time.
+    if (!fullView || isWeekend || dayKey > today) return "";
     if (seconds >= normSeconds) return "met";
     return seconds > 0 ? "under" : "empty";
   };
@@ -433,7 +468,15 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
   }
 
   return (
-    <main className="timesheet">
+    <main
+      className="timesheet"
+      style={
+        {
+          "--grid-font": tableFontStack(settings.tableFont),
+          "--grid-font-size": `${settings.tableFontSize}px`
+        } as CSSProperties
+      }
+    >
       <section className="toolbar">
         <div className="monthNav">
           <button className="icon" title="Previous month" onClick={() => setMonth(shiftMonth(month, -1))}>
@@ -464,29 +507,58 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
           </span>
         </div>
 
-        <button className="primary" onClick={() => void load(month)} disabled={loading}>
+        <button className="primary" onClick={refresh} disabled={loading}>
           <RefreshCw size={16} className={loading ? "spin" : ""} /> Refresh
         </button>
       </section>
 
       <section className="filters">
-        {settings.filters.length > 0 && (
         <div className="chips" role="radiogroup" aria-label="Filter">
-          {[{ id: "all", label: "All", jql: "" }, ...settings.filters].map((item) => (
-            <button
-              key={item.id}
-              role="radio"
-              aria-checked={filterId === item.id}
-              className={filterId === item.id ? "chip active" : "chip"}
-              title={item.jql || "All issues"}
-              onClick={() => setFilterId(item.id)}
-            >
-              {filterLoading && filterId === item.id && <LoaderCircle size={13} className="spin" />}
-              {item.label}
-            </button>
-          ))}
+          {chips.map((item) => {
+            const active = !searchJql && filterId === item.id;
+            const busy = active && (freeLoading || narrowLoading);
+            const title = item.jql
+              ? `${item.jql}${item.free ? "\n(free filter: its own list of issues)" : ""}`
+              : "Issues with your worklogs this month";
+            return (
+              <button
+                key={item.id}
+                role="radio"
+                aria-checked={active}
+                className={active ? "chip active" : "chip"}
+                title={title}
+                onClick={() => selectChip(item.id)}
+              >
+                {busy && <LoaderCircle size={13} className="spin" />}
+                {item.label}
+              </button>
+            );
+          })}
         </div>
-        )}
+        <form
+          className={searchJql ? "jqlSearch active" : "jqlSearch"}
+          onSubmit={(event) => {
+            event.preventDefault();
+            runSearch(searchDraft);
+          }}
+        >
+          {searchJql && freeLoading ? <LoaderCircle size={15} className="spin" /> : <Code2 size={15} />}
+          <input
+            value={searchDraft}
+            aria-label="Jira JQL search"
+            placeholder="Jira JQL search, e.g. project = SUP AND updated >= -14d · Enter to run"
+            spellCheck={false}
+            onChange={(event) => setSearchDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") runSearch("");
+            }}
+          />
+          {(searchDraft || searchJql) && (
+            <button type="button" className="icon small" title="Clear JQL search" onClick={() => runSearch("")}>
+              <X size={14} />
+            </button>
+          )}
+        </form>
         <label className="search">
           <Search size={15} />
           <input value={search} placeholder="Find issue" onChange={(event) => setSearch(event.target.value)} />
@@ -499,16 +571,9 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
       </section>
 
       <div
-        className={loading ? "gridWrap loading" : "gridWrap"}
+        className={loading || freeLoading || narrowLoading ? "gridWrap loading" : "gridWrap"}
         ref={gridRef}
         tabIndex={0}
-        style={
-          {
-            "--grid-font": tableFontStack(settings.tableFont),
-            "--grid-font-size": `${settings.tableFontSize}px`,
-            "--grid-weight": settings.tableBold ? 700 : 400
-          } as CSSProperties
-        }
         onKeyDown={onGridKeyDown}
         aria-label="Timesheet grid. Use arrow keys to move, type a value to edit."
       >
@@ -531,7 +596,7 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
             <tr className="totalsRow">
               <th className="keyCol" />
               <th className="summaryCol">
-                {filter || search ? `Total · ${rows.length} of ${allRows.length} issues` : `Total · ${rows.length} issues`}
+                {narrowJql || search.trim() ? `Total · ${rows.length} of ${allRows.length} issues` : `Total · ${rows.length} issues`}
               </th>
               {days.map((day) => (
                 <th key={day.key} className={["dayCol", totalClass(day.key, day.isWeekend, totals[day.key])].join(" ")}>
@@ -559,11 +624,6 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
                 </td>
                 <td className="summaryCol" title={row.issue.summary}>
                   <span className="summaryText">{row.issue.summary}</span>
-                  {row.pinned && row.total === 0 && (
-                    <button className="icon small unpin" title="Remove from list" onClick={() => void unpin(row)}>
-                      <X size={13} />
-                    </button>
-                  )}
                 </td>
                 {days.map((day) => {
                   const cell = { row: row.id, day: day.key };
@@ -629,10 +689,14 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
                 <td className="totalCol">{formatDuration(row.total, format)}</td>
               </tr>
             ))}
-            {!rows.length && !loading && (
+            {!rows.length && !loading && !freeLoading && !narrowLoading && (
               <tr>
                 <td className="emptyRow" colSpan={days.length + 3}>
-                  {allRows.length ? "No issues match this filter." : "No worklogs this month yet. Add an issue below to start logging."}
+                  {freeJql
+                    ? "No issues match this JQL."
+                    : allRows.length
+                      ? "No issues match this filter."
+                      : "No worklogs this month yet. Use the JQL search above to find an issue to log time on."}
                 </td>
               </tr>
             )}
@@ -641,32 +705,6 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
       </div>
 
       <section className="bottomBar">
-        <form
-          className="addIssue"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void addIssue();
-          }}
-        >
-          {activeSources.length > 1 && (
-            <select value={addSource} onChange={(event) => setAddSource(event.target.value)} aria-label="Jira source">
-              {activeSources.map((source) => (
-                <option key={source.id} value={source.id}>
-                  {source.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <input
-            value={addKey}
-            onChange={(event) => setAddKey(event.target.value)}
-            placeholder="Add issue, e.g. SUP-123"
-            aria-label="Issue key"
-          />
-          <button className="secondary" disabled={!addKey.trim() || adding}>
-            {adding ? <LoaderCircle size={15} className="spin" /> : <Plus size={15} />} Add
-          </button>
-        </form>
         <p className="hint">Double-click or type in a cell · 1.5 · 1h 30m · 90m · Delete clears</p>
         <button className="ghost logToggle" onClick={() => setLogOpen(!logOpen)}>
           Activity {log.some((item) => item.level === "error") && <span className="errorDot" />}

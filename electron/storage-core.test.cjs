@@ -16,7 +16,7 @@ describe("storage-core", () => {
         filters: [{ label: "SME", projectKeys: "arch, ba ba" }, { label: "Mine", jql: " assignee = currentUser() " }],
         jiraConnections: [{ id: "x", baseUrl: "https://jira.example.com///", apiVersion: "v3", authType: "weird" }]
       },
-      pinnedIssues: [{ sourceId: "x", key: "sup-1" }, { sourceId: "x", key: "SUP-1" }, { key: "NOPE-1" }]
+      pinnedIssues: [{ sourceId: "x", key: "SUP-1" }]
     });
     expect(data.settings.worklogStartTime).toBe("09:00");
     expect(data.settings.dailyNormHours).toBe(8);
@@ -30,26 +30,33 @@ describe("storage-core", () => {
       apiVersion: "2",
       authType: "basic"
     });
-    expect(data.pinnedIssues).toEqual([{ sourceId: "x", key: "SUP-1" }]);
+    // "Add issue" was removed; its saved list is dropped.
+    expect(data).not.toHaveProperty("pinnedIssues");
+    expect(data.settings.filters[0].free).toBe(false);
+    expect(data.settings.allFilter).toEqual({ jql: "", free: false });
   });
 
-  const DEFAULT_LOOK = { theme: "classic", tableFont: "system", tableFontSize: 12, tableBold: false, backgroundColor: "#ffffff" };
+  const DEFAULT_LOOK = { theme: "classic", tableFont: "system", tableFontSize: 12, backgroundColor: "#ffffff" };
 
   it("defaults to the current look and moves files from older versions to it once", () => {
     expect(core.defaultData().settings).toMatchObject(DEFAULT_LOOK);
     for (const version of [1, 2]) {
-      const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, tableBold: true, backgroundColor: "" } });
+      const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, backgroundColor: "" } });
       expect(old.settings).toMatchObject(DEFAULT_LOOK);
       expect(old.version).toBe(3);
     }
     // From version 3 on, the user's choice is kept.
-    const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, tableBold: true, backgroundColor: "" } });
-    expect(chosen.settings).toMatchObject({ theme: "dark", tableFont: "mono", tableFontSize: 16, tableBold: true, backgroundColor: "" });
+    const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" } });
+    expect(chosen.settings).toMatchObject({ theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" });
   });
 
-  it("validates bold and background colour settings", () => {
-    const good = core.mergeDefaults({ version: 3, settings: { tableBold: true, backgroundColor: "#FDF6E3" } });
-    expect(good.settings).toMatchObject({ tableBold: true, backgroundColor: "#fdf6e3" });
+  it("validates the background colour and the All/free filter settings", () => {
+    const good = core.mergeDefaults({
+      version: 3,
+      settings: { backgroundColor: "#FDF6E3", allFilter: { jql: " project = X ", free: true }, filters: [{ label: "F", jql: "a = b", free: true }] }
+    });
+    expect(good.settings).toMatchObject({ backgroundColor: "#fdf6e3", allFilter: { jql: "project = X", free: true } });
+    expect(good.settings.filters[0].free).toBe(true);
     const bad = core.mergeDefaults({ version: 3, settings: { backgroundColor: "red; background: url(x)" } });
     expect(bad.settings.backgroundColor).toBe("");
   });

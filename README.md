@@ -10,8 +10,9 @@ Jira is the only source of truth. Each cell shows your own logged time on one is
 - **Spreadsheet editing.** Click a cell and type, or double-click it. Enter moves down, Tab moves right, arrow keys move, Esc cancels, Delete clears the cell.
 - **Flexible time input.** Accepts `1.5`, `1,5`, `1h 30m`, `90m`, `1.5h` and `1:30`. An empty value or `0` deletes the time.
 - **Several Jira instances in one grid.** Supports Jira Server/Data Center (API v2) and Jira Cloud (API v3), with password/API token or personal access token auth.
-- **Extra issues.** Each source can have an optional JQL (for example `filter = worklogs`) to list issues before you have logged time on them. You can also add any issue by key; it stays in the list until you remove it.
-- **JQL filters.** Quick filter chips, each defined by a label and a JQL (e.g. `project in (SUP, OPS)`, `labels = support`, `component = Billing`). Selecting one shows the timesheet issues that match it in Jira. There is also a text search.
+- **Base list.** By default the table shows issues with your worklogs in the month, plus each source's optional *Extra issues JQL* (for example `filter = worklogs`).
+- **Jira JQL search.** The box above the table runs any JQL (Enter or Refresh) and shows exactly the issues it returns, with your logged time for the month. Use it to log time on an issue you haven't logged on yet. Clear it (× or Esc) to go back.
+- **JQL filters.** Quick filter chips, each a label plus a JQL. A normal filter narrows the base list; a *Free* filter shows exactly the issues its JQL returns. The *All* chip can have its own JQL too (narrowing or free). There is also a text search.
 - **Daily norm.** The daily totals row is green when a past working day reaches the norm, amber when it is short and red when it is empty. The header shows hours logged, the norm to date and the month norm.
 - **Sorted by time.** Issues with the most logged time in the month come first. The order is set when the month loads or refreshes, so rows don't jump while you type.
 - **Table font and size** are adjustable in Settings; the whole table scales with the size.

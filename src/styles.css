@@ -263,11 +263,54 @@ button:focus-visible {
   margin-left: 4px;
 }
 
+/* Chips | JQL search | Find issue. The JQL search starts exactly at the Summary column's right
+   border: the chips column is as wide as Key + Summary (+1px for the table frame). */
 .filters {
+  display: grid;
+  grid-template-columns: calc(1px + var(--grid-font-size, 14px) * 32.15) minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0;
+}
+
+.filters .chips {
+  padding-right: 10px;
+  min-width: 0;
+}
+
+.jqlSearch {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  min-width: 0;
+}
+
+.jqlSearch input {
+  flex: 1;
+  border: 0;
+  padding: 5px 0;
+  background: transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.jqlSearch input:focus {
+  outline: none;
+}
+
+.jqlSearch:focus-within,
+.jqlSearch.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.jqlSearch.active {
+  color: var(--accent);
 }
 
 .chips {
@@ -295,7 +338,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
+  margin-left: 10px;
   padding: 0 8px;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
@@ -804,9 +847,74 @@ label.check.standalone {
 
 .filterRow {
   display: grid;
-  grid-template-columns: 220px 1fr auto;
+  grid-template-columns: 220px 1fr auto 32px;
+  align-items: center;
   gap: 8px;
   margin-top: 8px;
+}
+
+.fixedLabel {
+  padding: 6px 9px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.freeCheck {
+  font-size: 13px;
+}
+
+/* The timesheet stays mounted (hidden) while Settings is open */
+.viewHost {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewHost[hidden] {
+  display: none;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.secretRow {
+  display: flex;
+  gap: 6px;
+}
+
+.formGrid .formField.wide {
+  grid-column: span 2;
+}
+
+.secretRow button {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--danger);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.secretRow button:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.secretRow input {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text);
 }
 
 .colorField {
@@ -866,7 +974,7 @@ label.check.standalone {
 }
 
 .gridWrap .grid {
-  font-weight: var(--grid-weight, 400);
+  font-weight: 400;
 }
 
 .gridWrap .grid thead th,

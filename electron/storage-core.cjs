@@ -2,13 +2,11 @@
 
 const DATA_VERSION = 3;
 
-// Appearance of the original Python/Dash app, used as the default.
 // Default look. Settings files from older versions are switched to it once (see mergeDefaults).
 const DEFAULT_APPEARANCE = {
   theme: "classic",
   tableFont: "system",
   tableFontSize: 12,
-  tableBold: false,
   backgroundColor: "#ffffff"
 };
 
@@ -38,10 +36,11 @@ function defaultData() {
       showWeekends: false,
       displayFormat: "decimal",
       ...DEFAULT_APPEARANCE,
+      // The "All" chip. Empty JQL: issues with your worklogs this month (+ each source's extra JQL).
+      allFilter: { jql: "", free: false },
       filters: [],
       jiraConnections: [defaultConnection(0)]
-    },
-    pinnedIssues: []
+    }
   };
 }
 
@@ -69,8 +68,14 @@ function normalizeFilter(filter) {
   return {
     id: String(filter?.id || makeId("filter")),
     label: String(filter?.label || "").trim() || "Filter",
-    jql
+    jql,
+    // Free: the JQL alone decides which issues are shown. Otherwise it narrows the base list.
+    free: filter?.free === true
   };
+}
+
+function normalizeAllFilter(filter) {
+  return { jql: String(filter?.jql || "").trim(), free: filter?.free === true };
 }
 
 function normalizeConnection(connection, index) {
@@ -87,22 +92,6 @@ function normalizeConnection(connection, index) {
     extraJql: String(merged.extraJql || "").trim(),
     enabled: merged.enabled !== false
   };
-}
-
-function normalizePinned(pinned) {
-  if (!Array.isArray(pinned)) return [];
-  const seen = new Set();
-  const result = [];
-  for (const item of pinned) {
-    const sourceId = String(item?.sourceId || "");
-    const key = String(item?.key || "").trim().toUpperCase();
-    if (!sourceId || !key) continue;
-    const id = `${sourceId}:${key}`;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    result.push({ sourceId, key });
-  }
-  return result;
 }
 
 function clampFontSize(value) {
@@ -126,15 +115,14 @@ function mergeDefaults(data) {
       theme: ["classic", "light", "dark", "system"].includes(settings.theme) ? settings.theme : "classic",
       tableFont: /^[a-z0-9-]{1,32}$/.test(String(settings.tableFont)) ? String(settings.tableFont) : "system",
       tableFontSize: clampFontSize(settings.tableFontSize),
-      tableBold: settings.tableBold === true,
       backgroundColor: /^#[0-9a-f]{6}$/i.test(String(settings.backgroundColor)) ? String(settings.backgroundColor).toLowerCase() : "",
+      allFilter: normalizeAllFilter(settings.allFilter),
       filters: Array.isArray(settings.filters) ? settings.filters.map(normalizeFilter) : [],
       jiraConnections:
         Array.isArray(settings.jiraConnections) && settings.jiraConnections.length
           ? settings.jiraConnections.map(normalizeConnection)
           : defaults.settings.jiraConnections
-    },
-    pinnedIssues: normalizePinned(data?.pinnedIssues)
+    }
   };
 }
 

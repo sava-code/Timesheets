@@ -65,7 +65,7 @@ function getMyself(connection) {
   return jiraRequest(connection, `/rest/api/${core.apiVersion(connection)}/myself`, { method: "GET" });
 }
 
-async function searchAllIssues(connection, jql, fields = ISSUE_FIELDS) {
+async function searchAllIssues(connection, jql, fields = ISSUE_FIELDS, limit = 5000) {
   const version = core.apiVersion(connection);
   const issues = [];
 
@@ -79,7 +79,7 @@ async function searchAllIssues(connection, jql, fields = ISSUE_FIELDS) {
         });
         issues.push(...(payload?.issues || []));
         nextPageToken = payload?.isLast ? undefined : payload?.nextPageToken;
-      } while (nextPageToken && issues.length < 5000);
+      } while (nextPageToken && issues.length < limit);
       return issues;
     } catch (error) {
       if (error.status !== 404 && error.status !== 410) throw error;
@@ -95,7 +95,7 @@ async function searchAllIssues(connection, jql, fields = ISSUE_FIELDS) {
     const page = payload?.issues || [];
     issues.push(...page);
     startAt += page.length;
-    if (!page.length || startAt >= (payload?.total ?? 0) || issues.length >= 5000) break;
+    if (!page.length || startAt >= (payload?.total ?? 0) || issues.length >= limit) break;
   }
   return issues;
 }
@@ -166,17 +166,6 @@ async function fetchSourceMonth(connection, month) {
   };
 }
 
-async function lookupIssue(connection, issueKey) {
-  const key = String(issueKey || "").trim().toUpperCase();
-  if (!key) throw new Error("Issue key is required.");
-  const raw = await jiraRequest(
-    connection,
-    `/rest/api/${core.apiVersion(connection)}/issue/${encodeURIComponent(key)}?fields=${ISSUE_FIELDS.join(",")}`,
-    { method: "GET" }
-  );
-  return core.toIssue(connection, raw);
-}
-
 async function createWorklog(connection, { issueKey, date, seconds, startTime }) {
   const value = core.validateSeconds(seconds);
   const raw = await jiraRequest(
@@ -219,6 +208,17 @@ async function deleteWorklog(connection, { issueKey, worklogId }) {
   return { ok: true };
 }
 
+const FREE_SEARCH_LIMIT = 1000;
+
+/** Issues for a free JQL (search box or free filter). Capped so a broad query stays usable. */
+async function searchIssues(connection, jql) {
+  const raw = await searchAllIssues(connection, jql, ISSUE_FIELDS, FREE_SEARCH_LIMIT);
+  return {
+    issues: raw.slice(0, FREE_SEARCH_LIMIT).map((issue) => core.toIssue(connection, issue)),
+    truncated: raw.length >= FREE_SEARCH_LIMIT
+  };
+}
+
 /** Which of `keys` match a filter JQL. Keys are sent in batches to keep each query short. */
 async function matchFilter(connection, jql, keys) {
   const matched = [];
@@ -242,8 +242,8 @@ module.exports = {
   createWorklog,
   deleteWorklog,
   fetchSourceMonth,
-  lookupIssue,
   matchFilter,
+  searchIssues,
   testConnection,
   updateWorklog
 };

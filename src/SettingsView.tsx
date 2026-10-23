@@ -172,15 +172,30 @@ export function SettingsView({ data, onSaved }: Props) {
                     <input value={connection.email} onChange={(event) => patchConnection(connection.id, { email: event.target.value })} />
                   </label>
                 )}
-                <label>
-                  {connection.authType === "bearer" ? "Token / PAT" : connection.apiVersion === "3" ? "API token" : "Password / token"}
-                  <input
-                    type="password"
-                    value={connection.token || ""}
-                    placeholder={connection.tokenPresent && !connection.clearToken ? "Saved — type to replace" : "Not set"}
-                    onChange={(event) => patchConnection(connection.id, { token: event.target.value, clearToken: false })}
-                  />
-                </label>
+                <div className="formField wide">
+                  <label htmlFor={`secret-${connection.id}`}>
+                    {connection.authType === "bearer" ? "Token / PAT" : connection.apiVersion === "3" ? "API token" : "Password / token"}
+                  </label>
+                  <div className="secretRow">
+                    <input
+                      id={`secret-${connection.id}`}
+                      type="password"
+                      value={connection.token || ""}
+                      placeholder={connection.tokenPresent && !connection.clearToken ? "Saved — type to replace" : "Not set"}
+                      onChange={(event) => patchConnection(connection.id, { token: event.target.value, clearToken: false })}
+                    />
+                    {connection.tokenPresent && !connection.clearToken && (
+                      <button
+                        type="button"
+                        className="ghost"
+                        title="Delete the saved password/token from this computer"
+                        onClick={() => patchConnection(connection.id, { clearToken: true, token: "" })}
+                      >
+                        Forget
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <label className="full">
                   Extra issues JQL <span className="muted">(optional — issues to show even without time this month)</span>
                   <input
@@ -213,11 +228,6 @@ export function SettingsView({ data, onSaved }: Props) {
                   </span>
                 )}
                 <span className="spacer" />
-                {connection.tokenPresent && !connection.clearToken && (
-                  <button className="ghost" onClick={() => patchConnection(connection.id, { clearToken: true, token: "" })}>
-                    Forget secret
-                  </button>
-                )}
                 <button
                   className="ghost danger"
                   disabled={draft.jiraConnections.length === 1}
@@ -241,21 +251,41 @@ export function SettingsView({ data, onSaved }: Props) {
           <div>
             <h3>Filters</h3>
             <p>
-              Quick filters above the timesheet. Each one shows the timesheet issues that match its JQL, e.g.{" "}
-              <code>project in (SUP, OPS)</code> or <code>labels = support</code>.
+              Quick filters above the timesheet, each defined by a JQL such as <code>project in (SUP, OPS)</code>.
+              By default a filter narrows the base list (issues with your worklogs this month and the sources' extra
+              JQL). Tick <strong>Free</strong> to show exactly the issues its JQL returns instead, so you can log time
+              on issues you haven't logged on yet.
             </p>
           </div>
           <button
             className="secondary"
             onClick={() => {
               const id = newId("filter");
-              setDraft((current) => ({ ...current, filters: [...current.filters, { id, label: "", jql: "" }] }));
+              setDraft((current) => ({ ...current, filters: [...current.filters, { id, label: "", jql: "", free: false }] }));
             }}
           >
             <Plus size={15} /> Add filter
           </button>
         </div>
-        {!draft.filters.length && <p className="muted">No filters yet.</p>}
+        <div className="filterRow">
+          <span className="fixedLabel" title="The default view. Its label can't be changed.">All</span>
+          <input
+            value={draft.allFilter.jql}
+            placeholder="Optional JQL. Empty: issues with your worklogs this month"
+            aria-label="JQL for All"
+            onChange={(event) => setDraft({ ...draft, allFilter: { ...draft.allFilter, jql: event.target.value } })}
+          />
+          <label className="check freeCheck" title="Show exactly the issues this JQL returns, not only the base list">
+            <input
+              type="checkbox"
+              aria-label="Free filter: All"
+              checked={draft.allFilter.free}
+              onChange={(event) => setDraft({ ...draft, allFilter: { ...draft.allFilter, free: event.target.checked } })}
+            />
+            Free
+          </label>
+          <span />
+        </div>
         {draft.filters.map((filter) => (
           <div className="filterRow" key={filter.id}>
             <input
@@ -269,6 +299,15 @@ export function SettingsView({ data, onSaved }: Props) {
               aria-label={`JQL for ${filter.label || "filter"}`}
               onChange={(event) => patchFilter(filter.id, { jql: event.target.value })}
             />
+            <label className="check freeCheck" title="Show exactly the issues this JQL returns, not only the base list">
+              <input
+                type="checkbox"
+                aria-label={`Free filter: ${filter.label || "filter"}`}
+                checked={filter.free}
+                onChange={(event) => patchFilter(filter.id, { free: event.target.checked })}
+              />
+              Free
+            </label>
             <button
               className="icon danger"
               title="Remove filter"
@@ -336,16 +375,6 @@ export function SettingsView({ data, onSaved }: Props) {
                   {size}px{size === 12 ? " (original)" : ""}
                 </option>
               ))}
-            </select>
-          </label>
-          <label>
-            Table text
-            <select
-              value={draft.tableBold ? "bold" : "normal"}
-              onChange={(event) => setDraft({ ...draft, tableBold: event.target.value === "bold" })}
-            >
-              <option value="bold">Bold</option>
-              <option value="normal">Regular</option>
             </select>
           </label>
           <label>

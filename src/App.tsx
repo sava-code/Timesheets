@@ -46,8 +46,11 @@ export default function App() {
       </header>
 
       {error && <div className="fatal">Could not load settings: {error}</div>}
-      {data && view === "timesheet" && (
-        <TimesheetView data={data} onDataChange={setData} onOpenSettings={() => setView("settings")} />
+      {/* The timesheet stays mounted while Settings is open, so its table, month and filter survive. */}
+      {data && (
+        <div className="viewHost" hidden={view !== "timesheet"}>
+          <TimesheetView data={data} onOpenSettings={() => setView("settings")} />
+        </div>
       )}
       {data && view === "settings" && <SettingsView data={data} onSaved={setData} />}
     </div>

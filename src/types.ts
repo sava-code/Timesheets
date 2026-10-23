@@ -23,6 +23,19 @@ export interface FilterGroup {
   id: string;
   label: string;
   jql: string;
+  /** Free: the JQL alone decides which issues are shown. Otherwise it narrows the base list. */
+  free: boolean;
+}
+
+/** The "All" chip. Empty JQL shows the base list. */
+export interface AllFilter {
+  jql: string;
+  free: boolean;
+}
+
+export interface SearchResult {
+  sources: Array<{ sourceId: string; sourceName: string; issues: Issue[]; truncated: boolean }>;
+  errors: SourceError[];
 }
 
 export interface FilterMatch {
@@ -40,22 +53,16 @@ export interface Settings {
   tableFont: string;
   /** Pixels. */
   tableFontSize: number;
-  tableBold: boolean;
   /** "#rrggbb" for the window and table background, or "" for the theme default. */
   backgroundColor: string;
+  allFilter: AllFilter;
   filters: FilterGroup[];
   jiraConnections: JiraConnection[];
-}
-
-export interface PinnedIssue {
-  sourceId: string;
-  key: string;
 }
 
 export interface AppData {
   version: number;
   settings: Settings;
-  pinnedIssues: PinnedIssue[];
 }
 
 export interface Issue {
@@ -108,7 +115,8 @@ export interface TimesheetsApi {
   loadData: () => Promise<AppData>;
   saveData: (data: AppData) => Promise<AppData>;
   fetchMonth: (month: string) => Promise<MonthResult>;
-  addIssue: (sourceId: string, issueKey: string) => Promise<{ data: AppData; issue: Issue }>;
+  /** Issues returned by a free JQL on every enabled source. */
+  searchIssues: (jql: string) => Promise<SearchResult>;
   /** Which of the given issue keys (per source) match the JQL. */
   matchFilter: (jql: string, keysBySource: Record<string, string[]>) => Promise<FilterMatch>;
   createWorklog: (sourceId: string, payload: { issueKey: string; date: string; seconds: number }) => Promise<Worklog>;

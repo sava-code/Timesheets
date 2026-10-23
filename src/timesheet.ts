@@ -1,4 +1,4 @@
-import type { Issue, MonthResult, PinnedIssue, Worklog } from "./types";
+import type { Issue, MonthResult, SearchResult, Worklog } from "./types";
 import { monthDays, type MonthDay } from "./time";
 
 export interface Row {
@@ -6,7 +6,6 @@ export interface Row {
   issue: Issue;
   cells: Record<string, Worklog[]>;
   total: number;
-  pinned: boolean;
 }
 
 export const rowId = (sourceId: string, key: string) => `${sourceId}:${key}`;
@@ -32,16 +31,39 @@ export function compareRowsByTotal(a: Row, b: Row): number {
   return b.total - a.total || compareRows(a, b);
 }
 
-export function buildRows(result: MonthResult | null, pinned: PinnedIssue[]): Row[] {
-  if (!result) return [];
-  const pinnedIds = new Set(pinned.map((item) => rowId(item.sourceId, item.key)));
+/** What one Jira source contributes to the grid: which issues to show, and your worklogs. */
+export interface SourceRows {
+  sourceId: string;
+  issues: Issue[];
+  worklogs: Worklog[];
+}
+
+/** Base list: issues from the month load (your worklogs + extra JQL). */
+export function baseSources(result: MonthResult | null): SourceRows[] {
+  return result ? result.sources.map(({ sourceId, issues, worklogs }) => ({ sourceId, issues, worklogs })) : [];
+}
+
+/**
+ * Free JQL list: the issues the JQL returned, with your worklogs from the month load.
+ * The month load already has every worklog of yours in the month, so no extra calls are needed.
+ */
+export function freeSources(result: MonthResult | null, search: SearchResult): SourceRows[] {
+  const worklogsBySource = new Map((result?.sources || []).map((source) => [source.sourceId, source.worklogs]));
+  return search.sources.map((source) => ({
+    sourceId: source.sourceId,
+    issues: source.issues,
+    worklogs: worklogsBySource.get(source.sourceId) || []
+  }));
+}
+
+export function buildRows(sources: SourceRows[]): Row[] {
   const rows = new Map<string, Row>();
 
-  for (const source of result.sources) {
+  for (const source of sources) {
     for (const issue of source.issues) {
       const id = rowId(source.sourceId, issue.key);
       if (!rows.has(id)) {
-        rows.set(id, { id, issue, cells: {}, total: 0, pinned: pinnedIds.has(id) });
+        rows.set(id, { id, issue, cells: {}, total: 0 });
       }
     }
     for (const worklog of source.worklogs) {

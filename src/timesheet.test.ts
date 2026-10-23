@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { MonthResult, Worklog } from "./types";
-import { buildRows, dayTotals, filterRows, keysBySource, matchedRowIds, planCellEdit, updateSourceWorklogs, visibleDays } from "./timesheet";
+import {
+  baseSources,
+  buildRows,
+  dayTotals,
+  filterRows,
+  freeSources,
+  keysBySource,
+  matchedRowIds,
+  planCellEdit,
+  updateSourceWorklogs,
+  visibleDays
+} from "./timesheet";
 
 const wl = (id: string, date: string, seconds: number, time = "09:00", comment = ""): Worklog => ({
   id,
@@ -49,10 +60,10 @@ const result: MonthResult = {
 };
 
 describe("buildRows", () => {
-  const rows = buildRows(result, [{ sourceId: "a", key: "INT-1" }]);
+  const rows = buildRows(baseSources(result));
 
   it("keeps one row per source and issue, most logged time first", () => {
-    // 2h, 1.5h, 15m, then the pinned issue with no time.
+    // 2h, 1.5h, 15m, then the extra-JQL issue with no time.
     expect(rows.map((row) => row.id)).toEqual(["a:SUP-10", "a:SUP-9", "b:SUP-9", "a:INT-1"]);
   });
 
@@ -60,7 +71,21 @@ describe("buildRows", () => {
     const sup9 = rows.find((row) => row.id === "a:SUP-9")!;
     expect(sup9.cells["2026-10-05"]).toHaveLength(2);
     expect(sup9.total).toBe(5400);
-    expect(rows.find((row) => row.id === "a:INT-1")!.pinned).toBe(true);
+    expect(rows.find((row) => row.id === "a:INT-1")!.total).toBe(0);
+  });
+
+  it("builds a free JQL list from its issues plus your worklogs from the month load", () => {
+    const free = buildRows(
+      freeSources(result, {
+        errors: [],
+        sources: [{ sourceId: "a", sourceName: "a", truncated: false, issues: [issue("a", "SUP-9"), issue("a", "NEW-5")] }]
+      })
+    );
+    // Only the JQL's issues; SUP-9 keeps its 1.5h, NEW-5 has no time yet; source b isn't in the result.
+    expect(free.map((row) => [row.id, row.total])).toEqual([
+      ["a:SUP-9", 5400],
+      ["a:NEW-5", 0]
+    ]);
   });
 
   it("sends keys per source to a JQL filter and filters by its matches", () => {

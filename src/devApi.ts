@@ -13,6 +13,13 @@ const ISSUES: Array<[string, string, string]> = [
   ["client", "BA-27", "Requirements workshop with client"]
 ];
 
+// Issues with no time logged by you: only reachable through a JQL search or free filter.
+const UNLOGGED_ISSUES: Array<[string, string, string]> = [
+  ["main", "SUP-1101", "Statement export times out for large accounts"],
+  ["main", "IMPL-330", "Card scheme certification test plan"],
+  ["client", "OPS-512", "Weekend deployment window"]
+];
+
 function issue(sourceId: string, key: string, summary: string): Issue {
   return {
     sourceId,
@@ -68,19 +75,19 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
       theme: "classic",
       tableFont: "system",
       tableFontSize: 12,
-      tableBold: false,
       backgroundColor: "#ffffff",
+      allFilter: { jql: "", free: false },
       filters: [
-        { id: "f1", label: "Support", jql: "project = SUP" },
-        { id: "f2", label: "Implementation", jql: "project = IMPL" },
-        { id: "f3", label: "SME", jql: "project in (ARCH, BA)" }
+        { id: "f1", label: "Support", jql: "project = SUP", free: false },
+        { id: "f2", label: "Implementation", jql: "project = IMPL", free: false },
+        { id: "f3", label: "SME", jql: "project in (ARCH, BA)", free: false },
+        { id: "f4", label: "All support", jql: "project = SUP AND resolution = Unresolved", free: true }
       ],
       jiraConnections: [
         { id: "main", name: "Delivery Jira", baseUrl: "https://jira.example.com", apiVersion: "2", authType: "bearer", email: "", extraJql: "filter = worklogs", enabled: true, tokenPresent: true },
         { id: "client", name: "Client Jira", baseUrl: "https://client.atlassian.net", apiVersion: "3", authType: "basic", email: "me@example.com", extraJql: "", enabled: true, tokenPresent: true }
       ]
-    },
-    pinnedIssues: []
+    }
   };
   const months = new Map<string, Map<string, Worklog[]>>();
   let nextId = 50000;
@@ -120,10 +127,7 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
         .filter((connection) => connection.enabled)
         .map((connection) => {
           const worklogs = bySource.get(connection.id) || [];
-          const keys = new Set([
-            ...worklogs.map((item) => item.issueKey),
-            ...data.pinnedIssues.filter((item) => item.sourceId === connection.id).map((item) => item.key)
-          ]);
+          const keys = new Set(worklogs.map((item) => item.issueKey));
           if (connection.id === "main") keys.add("INT-15");
           const issues = [...keys].map((key) => {
             const known = ISSUES.find(([, issueKey]) => issueKey === key);
@@ -133,14 +137,31 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
         });
       return { month, sources, errors: [], configured: sources.length };
     },
-    addIssue: async (sourceId, issueKey) => {
-      await delay();
-      const key = issueKey.trim().toUpperCase();
-      if (!/^[A-Z][A-Z0-9_]+-\d+$/.test(key)) throw new Error(`Issue does not exist: ${key}`);
-      if (!data.pinnedIssues.some((item) => item.sourceId === sourceId && item.key === key)) {
-        data.pinnedIssues.push({ sourceId, key });
+    // Demo only: explicit keys (SUP-1, IMPL-2) or project names in the JQL; "!!" is a JQL error.
+    searchIssues: async (jql) => {
+      await delay(400);
+      if (/!!/.test(jql)) {
+        return {
+          sources: [],
+          errors: data.settings.jiraConnections.map((c) => ({ sourceId: c.id, sourceName: c.name, message: "Error in the JQL Query" }))
+        };
       }
-      return { data: structuredClone(data), issue: issue(sourceId, key, `Issue ${key}`) };
+      const upper = jql.toUpperCase();
+      const keys = upper.match(/\b[A-Z][A-Z0-9_]+-\d+\b/g) || [];
+      const words = new Set(upper.match(/[A-Z][A-Z0-9_]+/g) || []);
+      const pool = [...ISSUES, ...UNLOGGED_ISSUES];
+      const picked = keys.length
+        ? keys.map((key) => pool.find(([, k]) => k === key) || (["main", key, `Issue ${key}`] as [string, string, string]))
+        : pool.filter(([, key]) => words.has(key.split("-")[0]));
+      const sources = data.settings.jiraConnections
+        .filter((connection) => connection.enabled)
+        .map((connection) => ({
+          sourceId: connection.id,
+          sourceName: connection.name,
+          truncated: false,
+          issues: picked.filter(([sourceId]) => sourceId === connection.id).map(([sourceId, key, summary]) => issue(sourceId, key, summary))
+        }));
+      return { sources, errors: [] };
     },
     // Demo only: understands project names in the JQL (project = X / project in (X, Y)).
     matchFilter: async (jql, keys) => {
