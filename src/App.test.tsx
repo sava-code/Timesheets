@@ -147,7 +147,10 @@ describe("Timesheet grid", () => {
     expect(order()).toEqual(before);
 
     await user.click(screen.getByRole("button", { name: /refresh/i }));
-    await waitFor(() => expect(order()[0]).toBe(last));
+    // After Refresh the rows are re-sorted by total, so the edited row moves up.
+    await waitFor(() => expect(order()).not.toEqual(before));
+    expect(totals()).toEqual([...totals()].sort((a, b) => b - a));
+    expect(order().indexOf(last)).toBeLessThan(before.length - 1);
   });
 
   it("applies the table font and size from Settings", async () => {
@@ -172,7 +175,9 @@ describe("Timesheet grid", () => {
     render(<App />);
     await screen.findByText("INT-15");
     expect(screen.getByRole("columnheader", { name: "Summary" })).toBeInTheDocument();
-    expect(document.documentElement.style.getPropertyValue("--bg")).toBe("#ffffff");
+    // White comes from the Classic theme itself, not from a stored colour, so other themes keep their own.
+    expect(document.documentElement.dataset.theme).toBe("classic");
+    expect(document.documentElement.style.getPropertyValue("--bg")).toBe("");
 
     await user.click(screen.getByRole("button", { name: /settings/i }));
     expect(screen.queryByLabelText("Table text")).not.toBeInTheDocument();
@@ -264,6 +269,32 @@ describe("Timesheet grid", () => {
     await screen.findByText("Settings saved.");
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
     await screen.findByText("IMPL-330");
+  });
+
+  it("leaves absence days out of the norm and shows them in grey", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("INT-15");
+    // The demo has 3 absence working days: CAL-101 (2 days) and CAL-102 (1 day).
+    const workdays = monthDays(currentMonth()).filter((day) => !day.isWeekend);
+    const normText = () => screen.getByText("Month norm").querySelector("strong")!.textContent;
+    expect(normText()).toBe(String((workdays.length - 3) * 8));
+    const vacation = workdays[6].key;
+    const header = document.querySelectorAll<HTMLElement>("thead tr.dayRow th.absent");
+    expect(header).toHaveLength(3);
+    expect(header[0].title).toMatch(/CAL-101 · Vacation/);
+    expect(cell("main:INT-15", vacation)).toHaveClass("absent");
+    // Absence days are never coloured as short days.
+    expect(document.querySelectorAll("thead tr.totalsRow th.absent.under, thead tr.totalsRow th.absent.empty")).toHaveLength(0);
+
+    // Switching absences off restores the full norm.
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByLabelText("Use absences"));
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    await waitFor(() => expect(normText()).toBe(String(workdays.length * 8)));
+    expect(document.querySelectorAll("th.absent")).toHaveLength(0);
   });
 
   it("shows Forget next to the saved password", async () => {

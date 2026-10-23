@@ -1,5 +1,5 @@
 // In-browser stand-in for the Electron bridge, used by `npm run dev:web` and tests.
-import type { AppData, Issue, MonthResult, TimesheetsApi, Worklog } from "./types";
+import type { Absence, AppData, Issue, MonthResult, TimesheetsApi, Worklog } from "./types";
 import { monthDays } from "./time";
 
 const ISSUES: Array<[string, string, string]> = [
@@ -32,7 +32,27 @@ function issue(sourceId: string, key: string, summary: string): Issue {
   };
 }
 
+/** Demo absences: a two-day vacation in the 2nd week and a sick day in the 3rd week of the month. */
+export function demoAbsences(month: string): Absence[] {
+  const workdays = monthDays(month).filter((day) => !day.isWeekend);
+  const absence = (key: string, summary: string, from: string, to: string): Absence => ({
+    key,
+    summary,
+    status: "Approved",
+    from,
+    to,
+    url: `https://jira.example.com/browse/${key}`
+  });
+  return [
+    absence("CAL-101", "Vacation", workdays[6].key, workdays[7].key),
+    absence("CAL-102", "Sick leave", workdays[14].key, workdays[14].key)
+  ];
+}
+
 function seededData(month: string): Map<string, Worklog[]> {
+  const off = new Set(
+    demoAbsences(month).flatMap((item) => monthDays(month).filter((d) => d.key >= item.from && d.key <= item.to).map((d) => d.key))
+  );
   const bySource = new Map<string, Worklog[]>([["main", []], ["client", []]]);
   let id = 10000;
   let seed = month.split("-").reduce((sum, part) => sum + Number(part), 7);
@@ -42,7 +62,7 @@ function seededData(month: string): Map<string, Worklog[]> {
   };
   const today = new Date().toISOString().slice(0, 10);
   for (const day of monthDays(month)) {
-    if (day.isWeekend || day.key > today) continue;
+    if (day.isWeekend || day.key > today || off.has(day.key)) continue;
     let left = 8 * 3600;
     const picks = [...ISSUES].sort(() => random() - 0.5).slice(0, 2 + Math.floor(random() * 2));
     picks.forEach(([sourceId, key], index) => {
@@ -75,8 +95,15 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
       theme: "classic",
       tableFont: "system",
       tableFontSize: 12,
-      backgroundColor: "#ffffff",
+      backgroundColor: "",
       allFilter: { jql: "", free: false },
+      absences: {
+        enabled: true,
+        sourceId: "",
+        jql: "project = calendar AND Employee = currentUser()",
+        fromField: "customfield_10800",
+        toField: "customfield_10801"
+      },
       filters: [
         { id: "f1", label: "Support", jql: "project = SUP", free: false },
         { id: "f2", label: "Implementation", jql: "project = IMPL", free: false },
@@ -135,7 +162,14 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
           });
           return { sourceId: connection.id, sourceName: connection.name, user: "Demo User", issues, worklogs: structuredClone(worklogs) };
         });
-      return { month, sources, errors: [], configured: sources.length };
+      return {
+        month,
+        sources,
+        errors: [],
+        configured: sources.length,
+        absences: data.settings.absences.enabled ? demoAbsences(month) : [],
+        absenceErrors: []
+      };
     },
     // Demo only: explicit keys (SUP-1, IMPL-2) or project names in the JQL; "!!" is a JQL error.
     searchIssues: async (jql) => {

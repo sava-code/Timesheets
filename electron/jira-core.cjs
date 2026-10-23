@@ -60,6 +60,28 @@ function chunk(items, size) {
   return result;
 }
 
+/** A date or datetime custom field value as YYYY-MM-DD ("" if empty). */
+function fieldDate(value) {
+  const text = typeof value === "string" ? value : value?.value || "";
+  return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : "";
+}
+
+/** An absence issue -> { key, summary, from, to }; null when it has no start date. */
+function toAbsence(connection, raw, fromField, toField) {
+  const fields = raw.fields || {};
+  const from = fieldDate(fields[fromField]);
+  if (!from) return null;
+  const to = fieldDate(fields[toField]) || from;
+  return {
+    key: raw.key,
+    summary: fields.summary || raw.key,
+    status: fields.status?.name || "",
+    from: from <= to ? from : to,
+    to: from <= to ? to : from,
+    url: `${normalizeBaseUrl(connection.baseUrl)}/browse/${raw.key}`
+  };
+}
+
 // The date part of Jira's "started" timestamp, as recorded by Jira for the author.
 function worklogDateKey(started) {
   return String(started || "").slice(0, 10);
@@ -170,6 +192,8 @@ async function mapLimit(items, limit, worker) {
 
 module.exports = {
   apiVersion,
+  fieldDate,
+  toAbsence,
   chunk,
   restrictJqlToKeys,
   stripOrderBy,

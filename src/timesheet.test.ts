@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MonthResult, Worklog } from "./types";
 import {
+  absenceDays,
   baseSources,
   buildRows,
   dayTotals,
@@ -36,6 +37,8 @@ const result: MonthResult = {
   month: "2026-10",
   configured: 2,
   errors: [],
+  absences: [],
+  absenceErrors: [],
   sources: [
     {
       sourceId: "a",
@@ -107,6 +110,24 @@ describe("buildRows", () => {
     expect(days.some((day) => day.key === "2026-10-03")).toBe(false); // empty Saturday
     expect(days).toHaveLength(23);
     expect(dayTotals(rows, days)["2026-10-05"]).toBe(5400);
+  });
+});
+
+describe("absenceDays", () => {
+  const absence = (key: string, from: string, to: string) => ({ key, summary: key, status: "", from, to, url: "" });
+
+  it("lists every day of the month an absence covers, clipped to the month", () => {
+    const days = absenceDays(
+      [absence("CAL-1", "2026-10-08", "2026-10-09"), absence("CAL-2", "2026-09-28", "2026-10-01"), absence("CAL-3", "2026-11-02", "2026-11-03")],
+      "2026-10"
+    );
+    expect([...days.keys()]).toEqual(["2026-10-01", "2026-10-08", "2026-10-09"]);
+    expect(days.get("2026-10-01")![0].key).toBe("CAL-2");
+  });
+
+  it("keeps overlapping absences on the same day", () => {
+    const days = absenceDays([absence("CAL-1", "2026-10-08", "2026-10-08"), absence("CAL-2", "2026-10-08", "2026-10-10")], "2026-10");
+    expect(days.get("2026-10-08")!.map((item) => item.key)).toEqual(["CAL-1", "CAL-2"]);
   });
 });
 

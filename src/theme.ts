@@ -38,5 +38,6 @@ export function applyTheme(theme: Theme, background = "") {
 export function themeBackground(theme: Theme): string {
   if (theme === "dark") return "#14171c";
   if (theme === "system" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) return "#14171c";
+  if (theme === "classic") return "#ffffff";
   return "#f4f5f7";
 }

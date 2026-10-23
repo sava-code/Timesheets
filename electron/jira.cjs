@@ -219,6 +219,12 @@ async function searchIssues(connection, jql) {
   };
 }
 
+/** Your registered absences (e.g. project = calendar AND Employee = currentUser()). */
+async function fetchAbsences(connection, { jql, fromField, toField }) {
+  const raw = await searchAllIssues(connection, jql, ["summary", "status", fromField, toField], 1000);
+  return raw.map((issue) => core.toAbsence(connection, issue, fromField, toField)).filter(Boolean);
+}
+
 /** Which of `keys` match a filter JQL. Keys are sent in batches to keep each query short. */
 async function matchFilter(connection, jql, keys) {
   const matched = [];
@@ -242,6 +248,7 @@ module.exports = {
   createWorklog,
   deleteWorklog,
   fetchSourceMonth,
+  fetchAbsences,
   matchFilter,
   searchIssues,
   testConnection,

@@ -5,6 +5,7 @@ import { tableFontStack } from "./fonts";
 import type { AppData, Issue, MonthResult, SearchResult, Worklog } from "./types";
 import { currentMonth, formatDuration, monthDays, monthLabel, parseDuration, shiftMonth, todayKey } from "./time";
 import {
+  absenceDays,
   baseSources,
   buildRows,
   cellSeconds,
@@ -105,8 +106,19 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
         for (const error of next.errors) {
           addLog("error", `${error.sourceName || error.sourceId}: ${error.message}`);
         }
+        for (const error of next.absenceErrors || []) {
+          addLog("error", `Absences · ${error.sourceName || error.sourceId}: ${error.message}`);
+        }
         const count = next.sources.reduce((sum, source) => sum + source.worklogs.length, 0);
-        if (next.configured) addLog("info", `Loaded ${monthLabel(target)}: ${count} worklogs`);
+        const absent = absenceDays(next.absences || [], target);
+        const absentWorkdays = monthDays(target).filter((day) => !day.isWeekend && absent.has(day.key)).length;
+        if (next.configured) {
+          addLog(
+            "info",
+            `Loaded ${monthLabel(target)}: ${count} worklogs` +
+              (absentWorkdays ? `, ${absentWorkdays} absence day${absentWorkdays === 1 ? "" : "s"} left out of the norm` : "")
+          );
+        }
       } catch (error) {
         if (id === requestId.current) addLog("error", `Refresh failed: ${errorText(error)}`);
       } finally {
@@ -117,9 +129,10 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   );
 
   // Reload when the month changes or the set of Jira sources is edited in Settings.
-  const sourcesSignature = JSON.stringify(
-    settings.jiraConnections.map((item) => [item.id, item.enabled, item.baseUrl, item.extraJql, item.tokenPresent])
-  );
+  const sourcesSignature = JSON.stringify([
+    settings.jiraConnections.map((item) => [item.id, item.enabled, item.baseUrl, item.extraJql, item.tokenPresent]),
+    settings.absences
+  ]);
   useEffect(() => {
     setSelected(null);
     editingRef.current = null;
@@ -260,7 +273,11 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
     0
   );
   const fullView = !freeJql && !narrowJql && !search.trim();
-  const workdays = monthDays(month).filter((day) => !day.isWeekend);
+  // Days off registered in Jira don't count towards the norm.
+  const absent = useMemo(() => absenceDays(result?.absences || [], month), [result, month]);
+  const absenceTitle = (dayKey: string) =>
+    (absent.get(dayKey) || []).map((item) => `Absence: ${item.key} · ${item.summary}${item.status ? ` (${item.status})` : ""}`).join("\n");
+  const workdays = monthDays(month).filter((day) => !day.isWeekend && !absent.has(day.key));
   const normSeconds = settings.dailyNormHours * 3600;
   const normToDate = workdays.filter((day) => day.key <= today).length * normSeconds;
 
@@ -449,6 +466,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   };
 
   const totalClass = (dayKey: string, isWeekend: boolean, seconds: number) => {
+    if (absent.has(dayKey)) return "absent";
     // The norm applies to the whole day, so colour only when the table shows all of your time.
     if (!fullView || isWeekend || dayKey > today) return "";
     if (seconds >= normSeconds) return "met";
@@ -586,7 +604,8 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
               {days.map((day) => (
                 <th
                   key={day.key}
-                  className={["dayCol", day.isWeekend ? "weekend" : "", day.key === today ? "today" : ""].join(" ")}
+                  className={["dayCol", day.isWeekend ? "weekend" : "", day.key === today ? "today" : "", absent.has(day.key) ? "absent" : ""].join(" ")}
+                  title={absenceTitle(day.key) || undefined}
                 >
                   <span className="dayNum">{day.day}</span>
                   <span className="dayName">{day.weekday}</span>
@@ -600,7 +619,11 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
               </th>
               <th className="totalCol">{formatDuration(filteredTotal, format)}</th>
               {days.map((day) => (
-                <th key={day.key} className={["dayCol", totalClass(day.key, day.isWeekend, totals[day.key])].join(" ")}>
+                <th
+                  key={day.key}
+                  className={["dayCol", totalClass(day.key, day.isWeekend, totals[day.key])].join(" ")}
+                  title={absenceTitle(day.key) || undefined}
+                >
                   {formatDuration(totals[day.key], format)}
                 </th>
               ))}
@@ -648,6 +671,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                         "cell",
                         day.isWeekend ? "weekend" : "",
                         day.key === today ? "today" : "",
+                        absent.has(day.key) ? "absent" : "",
                         isSelected ? "selected" : "",
                         isPending ? "pending" : "",
                         worklogs.length > 1 ? "multi" : ""

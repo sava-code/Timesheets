@@ -320,6 +320,71 @@ export function SettingsView({ data, onSaved }: Props) {
       </section>
 
       <section className="panel">
+        <div className="panelHead">
+          <div>
+            <h3>Absences</h3>
+            <p>
+              Days off registered as Jira issues (vacation, sick leave…). Their working days are left out of the norm
+              and shown in light grey.
+            </p>
+          </div>
+          <label className="check">
+            <input
+              type="checkbox"
+              aria-label="Use absences"
+              checked={draft.absences.enabled}
+              onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, enabled: event.target.checked } })}
+            />
+            Use absences
+          </label>
+        </div>
+        <div className="formGrid">
+          <label>
+            Jira source
+            <select
+              disabled={!draft.absences.enabled}
+              value={draft.absences.sourceId}
+              onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, sourceId: event.target.value } })}
+            >
+              <option value="">First enabled source</option>
+              {draft.jiraConnections.map((connection) => (
+                <option key={connection.id} value={connection.id}>
+                  {connection.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="wide">
+            Absences JQL
+            <input
+              disabled={!draft.absences.enabled}
+              value={draft.absences.jql}
+              onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, jql: event.target.value } })}
+            />
+          </label>
+          <span />
+          <label>
+            "Leave from date" field id
+            <input
+              disabled={!draft.absences.enabled}
+              value={draft.absences.fromField}
+              placeholder="customfield_10800"
+              onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, fromField: event.target.value } })}
+            />
+          </label>
+          <label>
+            "Leave to date" field id
+            <input
+              disabled={!draft.absences.enabled}
+              value={draft.absences.toField}
+              placeholder="customfield_10801"
+              onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, toField: event.target.value } })}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="panel">
         <h3>Timesheet</h3>
         <div className="formGrid">
           <label>

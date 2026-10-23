@@ -63,9 +63,25 @@ ipcMain.handle("jira:fetchMonth", async (_event, month) => {
   const connections = activeConnections(data);
   const sources = [];
   const errors = [];
+  let absences = [];
+  const absenceErrors = [];
+  const absenceSettings = data.settings.absences;
+  const absenceSource = absenceSettings.enabled
+    ? connections.find((item) => item.id === absenceSettings.sourceId) || connections[0]
+    : null;
 
-  await Promise.all(
-    connections.map(async (connection) => {
+  const loadAbsences = async () => {
+    if (!absenceSource) return;
+    try {
+      absences = await jira.fetchAbsences(absenceSource, absenceSettings);
+    } catch (error) {
+      absenceErrors.push({ sourceId: absenceSource.id, sourceName: absenceSource.name, message: error.message });
+    }
+  };
+
+  await Promise.all([
+    loadAbsences(),
+    ...connections.map(async (connection) => {
       try {
         const result = await jira.fetchSourceMonth(connection, month);
         if (result.warning) {
@@ -82,9 +98,9 @@ ipcMain.handle("jira:fetchMonth", async (_event, month) => {
         errors.push({ sourceId: connection.id, sourceName: connection.name, message: error.message });
       }
     })
-  );
+  ]);
 
-  return { month, sources, errors, configured: connections.length };
+  return { month, sources, errors, configured: connections.length, absences, absenceErrors };
 });
 
 // Free JQL (search box or free filter): the issues it returns on every enabled source.

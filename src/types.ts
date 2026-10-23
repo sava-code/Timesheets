@@ -56,6 +56,7 @@ export interface Settings {
   /** "#rrggbb" for the window and table background, or "" for the theme default. */
   backgroundColor: string;
   allFilter: AllFilter;
+  absences: AbsenceSettings;
   filters: FilterGroup[];
   jiraConnections: JiraConnection[];
 }
@@ -104,6 +105,29 @@ export interface MonthResult {
   sources: SourceMonth[];
   errors: SourceError[];
   configured: number;
+  /** Your registered absences (all of them; the app picks the days of the shown month). */
+  absences: Absence[];
+  absenceErrors: SourceError[];
+}
+
+export interface Absence {
+  key: string;
+  summary: string;
+  status: string;
+  /** YYYY-MM-DD, inclusive */
+  from: string;
+  to: string;
+  url: string;
+}
+
+export interface AbsenceSettings {
+  enabled: boolean;
+  /** Jira source holding the absences; "" = the first enabled one. */
+  sourceId: string;
+  jql: string;
+  /** Field ids, e.g. customfield_10800 ("Leave from date") */
+  fromField: string;
+  toField: string;
 }
 
 export interface AppInfo {

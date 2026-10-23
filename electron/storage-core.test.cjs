@@ -36,14 +36,14 @@ describe("storage-core", () => {
     expect(data.settings.allFilter).toEqual({ jql: "", free: false });
   });
 
-  const DEFAULT_LOOK = { theme: "classic", tableFont: "system", tableFontSize: 12, backgroundColor: "#ffffff" };
+  const DEFAULT_LOOK = { theme: "classic", tableFont: "system", tableFontSize: 12, backgroundColor: "" };
 
   it("defaults to the current look and moves files from older versions to it once", () => {
     expect(core.defaultData().settings).toMatchObject(DEFAULT_LOOK);
     for (const version of [1, 2]) {
       const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, backgroundColor: "" } });
       expect(old.settings).toMatchObject(DEFAULT_LOOK);
-      expect(old.version).toBe(4);
+      expect(old.version).toBe(5);
     }
     // From version 3 on, the user's choice is kept.
     const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" } });
@@ -76,6 +76,33 @@ describe("storage-core", () => {
     expect(core.mergeDefaults({ version: 3, settings: { theme: "dark" } }).settings.theme).toBe("dark");
     // From version 4 on, deleted presets stay deleted.
     expect(core.mergeDefaults({ version: 4, settings: { filters: [] } }).settings.filters).toEqual([]);
+  });
+
+  it("turns the stored default white into the theme background, keeping other colours", () => {
+    expect(core.mergeDefaults({ version: 4, settings: { backgroundColor: "#FFFFFF" } }).settings.backgroundColor).toBe("");
+    expect(core.mergeDefaults({ version: 4, settings: { backgroundColor: "#fdf6e3" } }).settings.backgroundColor).toBe("#fdf6e3");
+    expect(core.mergeDefaults({ version: 5, settings: { backgroundColor: "#ffffff" } }).settings.backgroundColor).toBe("#ffffff");
+  });
+
+  it("defaults and validates the absence settings", () => {
+    expect(core.defaultData().settings.absences).toEqual({
+      enabled: true,
+      sourceId: "",
+      jql: "project = calendar AND Employee = currentUser()",
+      fromField: "customfield_10800",
+      toField: "customfield_10801"
+    });
+    const custom = core.mergeDefaults({
+      version: 4,
+      settings: { absences: { enabled: false, sourceId: "b", jql: " ", fromField: "customfield_1", toField: "bad field; drop" } }
+    }).settings.absences;
+    expect(custom).toEqual({
+      enabled: false,
+      sourceId: "b",
+      jql: "project = calendar AND Employee = currentUser()",
+      fromField: "customfield_1",
+      toField: "customfield_10801"
+    });
   });
 
   it("validates the background colour and the All/free filter settings", () => {

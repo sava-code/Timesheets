@@ -1,6 +1,15 @@
 // Pure settings logic (no Electron imports) so it can be unit-tested.
 
-const DATA_VERSION = 4;
+const DATA_VERSION = 5;
+
+// Absences (vacation, sick leave...) registered as Jira issues; their days are left out of the norm.
+const DEFAULT_ABSENCES = {
+  enabled: true,
+  sourceId: "", // "" = the first enabled Jira source
+  jql: "project = calendar AND Employee = currentUser()",
+  fromField: "customfield_10800", // "Leave from date"
+  toField: "customfield_10801" // "Leave to date"
+};
 
 // Filters every installation starts with. Free: they list issues even without time logged this month.
 const DEFAULT_FILTERS = [
@@ -23,7 +32,8 @@ const DEFAULT_APPEARANCE = {
   theme: "classic",
   tableFont: "system",
   tableFontSize: 12,
-  backgroundColor: "#ffffff"
+  // "" = the theme's own background (white in Classic). A custom colour applies to every theme.
+  backgroundColor: ""
 };
 
 function makeId(prefix) {
@@ -54,6 +64,7 @@ function defaultData() {
       ...DEFAULT_APPEARANCE,
       // The "All" chip. Empty JQL: issues with your worklogs this month (+ each source's extra JQL).
       allFilter: { jql: "", free: false },
+      absences: { ...DEFAULT_ABSENCES },
       filters: DEFAULT_FILTERS.map((filter) => ({ ...filter })),
       jiraConnections: [defaultConnection(0)]
     }
@@ -87,6 +98,18 @@ function normalizeFilter(filter) {
     jql,
     // Free: the JQL alone decides which issues are shown. Otherwise it narrows the base list.
     free: filter?.free === true
+  };
+}
+
+function normalizeAbsences(value) {
+  const merged = { ...DEFAULT_ABSENCES, ...(value || {}) };
+  const field = (id, fallback) => (/^(customfield_\d+|[a-z][a-zA-Z0-9]*)$/.test(String(id || "").trim()) ? String(id).trim() : fallback);
+  return {
+    enabled: merged.enabled !== false,
+    sourceId: String(merged.sourceId || ""),
+    jql: String(merged.jql || "").trim() || DEFAULT_ABSENCES.jql,
+    fromField: field(merged.fromField, DEFAULT_ABSENCES.fromField),
+    toField: field(merged.toField, DEFAULT_ABSENCES.toField)
   };
 }
 
@@ -131,6 +154,8 @@ function mergeDefaults(data) {
   // Older versions had a different default look; switch their settings files to the current one once.
   const version = Number(data?.version) || 0;
   if (data && version < 3) Object.assign(settings, DEFAULT_APPEARANCE);
+  // Up to version 4 the default white was stored as a custom colour, which also forced it on the dark theme.
+  if (data && version < 5 && String(settings.backgroundColor).toLowerCase() === "#ffffff") settings.backgroundColor = "";
   const norm = Number(settings.dailyNormHours);
   return {
     version: DATA_VERSION,
@@ -144,6 +169,7 @@ function mergeDefaults(data) {
       tableFontSize: clampFontSize(settings.tableFontSize),
       backgroundColor: /^#[0-9a-f]{6}$/i.test(String(settings.backgroundColor)) ? String(settings.backgroundColor).toLowerCase() : "",
       allFilter: normalizeAllFilter(settings.allFilter),
+      absences: normalizeAbsences(settings.absences),
       filters: withDefaultFilters(
         Array.isArray(settings.filters) ? settings.filters.map(normalizeFilter) : [],
         data ? version : DATA_VERSION

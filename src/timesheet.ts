@@ -1,4 +1,4 @@
-import type { Issue, MonthResult, SearchResult, Worklog } from "./types";
+import type { Absence, Issue, MonthResult, SearchResult, Worklog } from "./types";
 import { monthDays, type MonthDay } from "./time";
 
 export interface Row {
@@ -105,6 +105,19 @@ export function filterRows(rows: Row[], matched: Set<string> | null, search: str
     if (!query) return true;
     return row.issue.key.toLowerCase().includes(query) || row.issue.summary.toLowerCase().includes(query);
   });
+}
+
+/** Days of `month` covered by an absence (inclusive range), with the absences covering each. */
+export function absenceDays(absences: Absence[], month: string): Map<string, Absence[]> {
+  const days = new Map<string, Absence[]>();
+  for (const day of monthDays(month)) {
+    for (const absence of absences) {
+      if (absence.from <= day.key && day.key <= absence.to) {
+        days.set(day.key, [...(days.get(day.key) || []), absence]);
+      }
+    }
+  }
+  return days;
 }
 
 /** Weekends are hidden unless requested, but never when they hold logged time. */

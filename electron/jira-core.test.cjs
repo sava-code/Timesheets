@@ -18,6 +18,26 @@ describe("jira-core", () => {
     expect(core.chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
   });
 
+  it("reads absence dates from date and datetime fields", () => {
+    const connection = { baseUrl: "https://jira.example.com/" };
+    const raw = (fields) => ({ key: "CAL-1", fields: { summary: "Vacation", status: { name: "Approved" }, ...fields } });
+    expect(core.toAbsence(connection, raw({ customfield_10800: "2026-10-08", customfield_10801: "2026-10-09" }), "customfield_10800", "customfield_10801")).toEqual({
+      key: "CAL-1",
+      summary: "Vacation",
+      status: "Approved",
+      from: "2026-10-08",
+      to: "2026-10-09",
+      url: "https://jira.example.com/browse/CAL-1"
+    });
+    // Datetime values, a missing end date (one day) and reversed dates.
+    const datetime = core.toAbsence(connection, raw({ customfield_10800: "2026-10-08T00:00:00.000+0200" }), "customfield_10800", "customfield_10801");
+    expect([datetime.from, datetime.to]).toEqual(["2026-10-08", "2026-10-08"]);
+    const reversed = core.toAbsence(connection, raw({ customfield_10800: "2026-10-09", customfield_10801: "2026-10-07" }), "customfield_10800", "customfield_10801");
+    expect([reversed.from, reversed.to]).toEqual(["2026-10-07", "2026-10-09"]);
+    // No start date: ignored.
+    expect(core.toAbsence(connection, raw({}), "customfield_10800", "customfield_10801")).toBeNull();
+  });
+
   it("builds auth headers", () => {
     expect(core.buildAuthHeader({ authType: "bearer" }, "abc")).toBe("Bearer abc");
     expect(core.buildAuthHeader({ authType: "basic", email: "u" }, "p")).toBe(`Basic ${Buffer.from("u:p").toString("base64")}`);
