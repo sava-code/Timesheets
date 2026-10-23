@@ -1,6 +1,5 @@
 :root {
-  --absent: #ececec; /* absence days (light grey) */
-  --absent-head: #d4d4d4;
+  --absent: #f4f4f4; /* absence days (light grey) */
   --bg: #f4f5f7;
   --surface: #ffffff;
   --surface-2: #f8f9fb;
@@ -31,8 +30,7 @@
 }
 
 :root[data-theme="dark"] {
-  --absent: #2b3039;
-  --absent-head: #4a515e;
+  --absent: #1f242b;
   --bg: #14171c;
   --surface: #1b1f26;
   --surface-2: #20252d;
@@ -1079,33 +1077,23 @@ label.check.standalone {
 }
 
 /* ---------------------------------------------------------------------------
-   Absence days (from Jira): light grey, and left out of the norm.
-   Last in the file so it wins over the weekend/today backgrounds of every theme.
+   Absence days (from Jira): light grey cells, left out of the norm. The heading rows keep
+   their normal colour. Hovering a row highlights all of its cells, absence days included.
+   Last in the file so these win over the weekend/today backgrounds of every theme.
    --------------------------------------------------------------------------- */
 
-.gridWrap .grid td.absent:not(.selected),
-.gridWrap .grid tbody tr:hover td.absent:not(.selected),
-[data-theme="classic"] .grid td.absent:not(.selected),
-[data-theme="classic"] .grid tbody tr:hover td.absent:not(.selected) {
+.gridWrap {
+  --row-hover: color-mix(in srgb, var(--accent) 9%, var(--bg));
+}
+
+[data-theme="classic"] .gridWrap {
+  --row-hover: #e6f7ff;
+}
+
+.gridWrap .grid td.absent:not(.selected) {
   background: var(--absent);
 }
 
-.gridWrap .grid .dayRow th.absent,
-.gridWrap .grid .totalsRow th.absent {
-  background: var(--absent-head);
-  color: #333333;
-}
-
-.gridWrap .grid .dayRow th.absent .dayNum {
-  color: #333333;
-}
-
-.gridWrap .grid .dayRow th.absent .dayName {
-  color: #666666;
-}
-
-:root[data-theme="dark"] .gridWrap .grid .dayRow th.absent,
-:root[data-theme="dark"] .gridWrap .grid .totalsRow th.absent,
-:root[data-theme="dark"] .gridWrap .grid .dayRow th.absent .dayNum {
-  color: #e6e9ef;
+.gridWrap .grid tbody tr:hover td:not(.selected) {
+  background: var(--row-hover);
 }
