@@ -831,115 +831,42 @@ label.check.standalone {
 }
 
 /* ---------------------------------------------------------------------------
-   Classic theme: the look of the original Python/Dash jira-timesheets app.
-   Dark (#333) header and totals rows with white bold text, days under the
-   norm in coral (#FD625E), a plain white table with light grey lines,
-   light blue row hover, white pill-shaped controls with soft shadows.
+   Classic theme: the TABLE of the original Python/Dash jira-timesheets app.
+   Only the table changes; the rest of the app keeps the light theme.
+   Values come from its assets/style.css and the inline styles in app.py:
+   - "Segoe UI", Arial, sans-serif 12px (the default table font setting); rows 24px
+   - header (style_header): bold, background #333333, border-style none
+   - totals row (.dt-table-container__row-0): bold #ffffff on #333333;
+     days under the norm (td.red): bold #ffffff on #FD625E
+   - row hover #e6f7ff; focused cell white; cell borders 0.5px, Dash default rgb(211,211,211)
+   - issue keys: plain markdown links, the browser's default link colour
    --------------------------------------------------------------------------- */
 
-:root[data-theme="classic"] {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #f8f9fa;
-  --border: #d3d3d3;
-  --border-strong: #b5b5b5;
-  --text: #212529;
-  --muted: #a6a6a6;
-  --accent: #4285f4;
-  --accent-soft: #e8f0fe;
-  --accent-text: #ffffff;
-  --weekend: #f4f4f4;
-  --today: #fff4d6;
-  --selected: #0d6efd;
-  --ok: #188038;
-  --ok-soft: #e6f4ea;
-  --warn: #b06000;
-  --warn-soft: #fef7e0;
-  --danger: #d93025;
-  --danger-soft: #fce8e6;
-  --header: #333333;
-  --header-text: #ffffff;
-  --classic-coral: #fd625e;
-  --classic-control: #3c4043;
-  --classic-shadow: rgba(60, 64, 67, 0.3) 0 1px 3px 0, rgba(60, 64, 67, 0.15) 0 4px 8px 3px;
-  --classic-shadow-hover: rgba(60, 64, 67, 0.3) 0 2px 3px 0, rgba(60, 64, 67, 0.15) 0 6px 10px 4px;
-  color-scheme: light;
-  font-family: "Segoe UI", Arial, sans-serif;
-  color: var(--classic-control);
-}
-
-/* Pill controls: Refresh and the filter bar */
-[data-theme="classic"] .toolbar button.primary {
-  background: #ffffff;
-  color: var(--classic-control);
-  border-radius: 24px;
-  padding: 8px 22px;
-  font-weight: 500;
-  letter-spacing: 0.25px;
-  box-shadow: var(--classic-shadow);
-  transition: box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-[data-theme="classic"] .toolbar button.primary:hover:not(:disabled) {
-  background: #f6f9fe;
-  color: #174ea6;
-  box-shadow: var(--classic-shadow-hover);
-}
-
-[data-theme="classic"] .toolbar button.primary:focus-visible {
-  outline: 2px solid #4285f4;
-}
-
-[data-theme="classic"] .chips {
-  padding: 5px 14px;
-  border-radius: 24px;
-  box-shadow: var(--classic-shadow);
-  background: #ffffff;
-  gap: 2px;
-}
-
-[data-theme="classic"] .chip {
-  border: 0;
-  background: none;
-  color: var(--classic-control);
-  padding: 4px 10px;
-}
-
-/* A radio-button dot before each filter, like the original */
-[data-theme="classic"] .chip::before {
-  content: "";
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 1.5px solid #c4c7c5;
-  box-sizing: border-box;
-  flex-shrink: 0;
-}
-
-[data-theme="classic"] .chip.active {
-  background: none;
-  color: var(--classic-control);
-  font-weight: 400;
-}
-
-[data-theme="classic"] .chip.active::before {
-  border: 4px solid #4285f4;
-}
-
-[data-theme="classic"] .search {
-  border-radius: 24px;
-  border-color: #dadce0;
-}
-
-/* Table */
 [data-theme="classic"] .gridWrap {
+  --border: rgb(211, 211, 211);
+  --border-strong: rgb(211, 211, 211);
+  --surface: #ffffff;
+  --surface-2: #ffffff;
+  --weekend: #ffffff;
+  --today: #ffffff;
   border-radius: 0;
-  border-color: var(--border);
+  border-color: rgb(211, 211, 211);
+}
+
+[data-theme="classic"] .grid {
+  color: #000000;
 }
 
 [data-theme="classic"] .grid th,
 [data-theme="classic"] .grid td {
-  border-color: var(--border);
+  border-color: rgb(211, 211, 211);
+  border-width: 0 0.5px 0.5px 0;
+}
+
+/* Rows 24px at the original 12px (the day header keeps its height: it holds two lines) */
+[data-theme="classic"] .grid tbody td,
+[data-theme="classic"] .grid .totalsRow th {
+  height: calc(var(--u) * 2);
 }
 
 [data-theme="classic"] .grid thead th,
@@ -947,32 +874,21 @@ label.check.standalone {
 [data-theme="classic"] .grid .totalsRow th {
   background: #333333;
   color: #ffffff;
-  font-weight: 700;
-  border-color: #4a4a4a;
+  font-weight: bold;
+  border-color: #333333; /* style_header border-style: none */
 }
 
-[data-theme="classic"] .dayRow .dayNum {
+[data-theme="classic"] .dayRow .dayNum,
+[data-theme="classic"] .dayRow .dayName,
+[data-theme="classic"] .grid .totalsRow .summaryCol,
+[data-theme="classic"] .grid .dayRow th.today .dayNum {
   color: #ffffff;
 }
 
-[data-theme="classic"] .dayRow .dayName {
-  color: #bdbdbd;
-}
-
 [data-theme="classic"] .grid .dayRow th.today {
-  background: #4a4a4a;
+  background: #333333;
 }
 
-[data-theme="classic"] .grid .dayRow th.today .dayNum {
-  color: #ffd27a;
-}
-
-[data-theme="classic"] .grid .totalsRow .summaryCol {
-  color: #bdbdbd;
-  font-weight: 500;
-}
-
-/* Daily totals: dark when the norm is met, coral when short or empty */
 [data-theme="classic"] .grid .totalsRow .met {
   background: #333333;
   color: #ffffff;
@@ -980,39 +896,29 @@ label.check.standalone {
 
 [data-theme="classic"] .grid .totalsRow .under,
 [data-theme="classic"] .grid .totalsRow .empty {
-  background: var(--classic-coral);
+  background: #fd625e;
   color: #ffffff;
+  font-weight: bold;
 }
 
-[data-theme="classic"] .grid .weekend {
-  background: var(--weekend);
+[data-theme="classic"] .grid .weekend,
+[data-theme="classic"] .grid td.today:not(.selected) {
+  background: #ffffff;
 }
 
 [data-theme="classic"] .grid tbody tr:hover td,
-[data-theme="classic"] .grid tbody tr:hover td.weekend {
+[data-theme="classic"] .grid tbody tr:hover td.weekend,
+[data-theme="classic"] .grid tbody tr:hover td.today {
   background: #e6f7ff;
 }
 
-[data-theme="classic"] .grid td.today:not(.selected) {
-  background: #fffaf0;
-}
-
+/* td.focused: white background */
 [data-theme="classic"] .grid td.cell.selected {
   background: #ffffff;
   box-shadow: inset 0 0 0 1px var(--selected);
 }
 
 [data-theme="classic"] .keyCol a {
-  color: #3d5afe;
-  font-weight: 500;
-}
-
-[data-theme="classic"] .logPanel {
-  font-family: "Segoe UI", Arial, sans-serif;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-[data-theme="classic"] .logLine span {
-  color: #a6a6a6;
+  color: #0000ee;
+  font-weight: normal;
 }
