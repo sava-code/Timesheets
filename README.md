@@ -68,7 +68,16 @@ npm run dist:portable  # Windows portable   → release/JiraTimesheets-<version>
 npm run dist:mac       # macOS dmg + zip (run on a Mac)
 ```
 
-The GitHub Actions workflow `.github/workflows/build.yml` builds the Windows and macOS installers when you push a `v*` tag, and attaches them to the release. You can also run it manually. Builds are not code-signed, so Windows SmartScreen and macOS Gatekeeper will warn on first launch.
+The GitHub Actions workflow `.github/workflows/build.yml` builds the Windows and macOS installers when you push a `v*` tag, and attaches them to the release. You can also run it manually.
+
+Builds are not signed with a paid certificate, so expect a warning on first launch:
+
+- **Windows**: SmartScreen shows "Windows protected your PC". Click **More info → Run anyway**.
+- **macOS**: the app is ad-hoc signed, but it is not notarized. On first launch macOS says it cannot verify the app. Go to **System Settings → Privacy & Security** and click **Open Anyway**. Alternatively, remove the download quarantine in Terminal:
+
+  ```bash
+  xattr -cr "/Applications/Jira Timesheets.app"
+  ```
 
 ## Project layout
 

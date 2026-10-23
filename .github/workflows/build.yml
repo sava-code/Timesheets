@@ -27,6 +27,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      # macOS: package.json sets mac.identity "-" (ad-hoc signature, no Apple account needed).
     steps:
       - uses: actions/checkout@v5
 
