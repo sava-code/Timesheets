@@ -65,6 +65,7 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
       dailyNormHours: 8,
       showWeekends: false,
       displayFormat: "decimal",
+      theme: "system",
       filters: [
         { id: "f1", label: "Support", projectKeys: ["SUP"] },
         { id: "f2", label: "Implementation", projectKeys: ["IMPL"] },

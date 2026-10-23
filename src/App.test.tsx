@@ -78,7 +78,7 @@ describe("Timesheet grid", () => {
 
     await user.click(cell("main:NEW-2", day));
     await user.keyboard("{Delete}");
-    await waitFor(() => expect(cell("main:NEW-2", day)).toHaveTextContent("0.02"));
+    await waitFor(() => expect(cell("main:NEW-2", day)).toHaveTextContent("0.0"));
     expect(update).toHaveBeenCalledWith("main", expect.objectContaining({ issueKey: "NEW-2", seconds: 60 }));
     await user.click(screen.getByRole("button", { name: /activity/i }));
     expect(await screen.findByText(/kept at 1m/)).toBeInTheDocument();
@@ -98,6 +98,26 @@ describe("Timesheet grid", () => {
     await user.type(editor, "1x{Enter}");
     expect(await screen.findByText(/is not a valid time/)).toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("switches theme from Settings and keeps the saved one", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("INT-15");
+    expect(document.documentElement.dataset.theme).toBe("light");
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.selectOptions(await screen.findByLabelText("Theme"), "dark");
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    // Leaving without saving restores the saved theme...
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    expect(document.documentElement.dataset.theme).toBe("light");
+    // ...and saving keeps the new one.
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.selectOptions(await screen.findByLabelText("Theme"), "dark");
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
   });
 
   it("filters rows by project group", async () => {

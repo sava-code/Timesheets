@@ -1,6 +1,7 @@
 export type AuthType = "basic" | "bearer";
 export type ApiVersion = "2" | "3";
 export type DisplayFormat = "decimal" | "jira";
+export type Theme = "system" | "light" | "dark";
 
 export interface JiraConnection {
   id: string;
@@ -28,6 +29,7 @@ export interface Settings {
   dailyNormHours: number;
   showWeekends: boolean;
   displayFormat: DisplayFormat;
+  theme: Theme;
   filters: FilterGroup[];
   jiraConnections: JiraConnection[];
 }

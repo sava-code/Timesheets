@@ -4,6 +4,7 @@ import { api, errorText } from "./api";
 import type { AppData } from "./types";
 import { TimesheetView } from "./TimesheetView";
 import { SettingsView } from "./SettingsView";
+import { applyTheme } from "./theme";
 
 type View = "timesheet" | "settings";
 
@@ -11,6 +12,10 @@ export default function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState("");
   const [view, setView] = useState<View>("timesheet");
+
+  // The saved theme; Settings previews unsaved choices itself and restores this on leave.
+  const savedTheme = data?.settings.theme ?? "system";
+  useEffect(() => applyTheme(savedTheme), [savedTheme, view]);
 
   useEffect(() => {
     api()

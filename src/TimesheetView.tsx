@@ -51,7 +51,7 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
   const [filterId, setFilterId] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Cell | null>(null);
-  const [editing, setEditing] = useState<(Cell & { value: string }) | null>(null);
+  const [editing, setEditing] = useState<(Cell & { value: string; original: string }) | null>(null);
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [log, setLog] = useState<LogEntry[]>([]);
   const [logOpen, setLogOpen] = useState(false);
@@ -60,7 +60,7 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
   const [adding, setAdding] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   // Mirrors `editing` synchronously so Enter/Tab/blur cannot commit the same edit twice.
-  const editingRef = useRef<(Cell & { value: string }) | null>(null);
+  const editingRef = useRef<(Cell & { value: string; original: string }) | null>(null);
   const logId = useRef(0);
   const requestId = useRef(0);
 
@@ -146,7 +146,8 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
     const row = rowById.get(cell.row);
     if (!row || pending.has(cellId(cell))) return;
     setSelected(cell);
-    const next = { ...cell, value: initial ?? formatDuration(cellSeconds(row.cells[cell.day]), format) };
+    const exact = formatDuration(cellSeconds(row.cells[cell.day]), format, 2);
+    const next = { ...cell, value: initial ?? exact, original: exact };
     editingRef.current = next;
     setEditing(next);
   };
@@ -155,7 +156,7 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
     const current = editingRef.current;
     editingRef.current = null;
     setEditing(null);
-    if (current && save) void commit({ row: current.row, day: current.day }, current.value);
+    if (current && save && current.value.trim() !== current.original) void commit({ row: current.row, day: current.day }, current.value);
     return current;
   };
 
@@ -236,7 +237,7 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
       const finalSeconds = parsed.seconds + keptMinimum;
       addLog(
         "ok",
-        `${key} · ${shortDate(cell.day)}: ${formatDuration(before, format) || "0"} → ${formatDuration(finalSeconds, format) || "0"}` +
+        `${key} · ${shortDate(cell.day)}: ${formatDuration(before, format, 2) || "0"} → ${formatDuration(finalSeconds, format, 2) || "0"}` +
           (keptMinimum
             ? ` (Jira doesn't allow you to delete worklogs, so ${keptMinimum / MIN_WORKLOG_SECONDS} worklog(s) kept at 1m)`
             : "")

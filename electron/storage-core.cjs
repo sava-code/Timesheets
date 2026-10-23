@@ -27,6 +27,7 @@ function defaultData() {
       dailyNormHours: 8,
       showWeekends: false,
       displayFormat: "decimal",
+      theme: "system",
       filters: [],
       jiraConnections: [defaultConnection(0)]
     },
@@ -99,6 +100,7 @@ function mergeDefaults(data) {
       dailyNormHours: Number.isFinite(norm) && norm > 0 && norm <= 24 ? norm : 8,
       showWeekends: Boolean(settings.showWeekends),
       displayFormat: settings.displayFormat === "jira" ? "jira" : "decimal",
+      theme: ["light", "dark"].includes(settings.theme) ? settings.theme : "system",
       filters: Array.isArray(settings.filters) ? settings.filters.map(normalizeFilter) : [],
       jiraConnections:
         Array.isArray(settings.jiraConnections) && settings.jiraConnections.length

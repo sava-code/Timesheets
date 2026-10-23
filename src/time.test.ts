@@ -50,11 +50,18 @@ describe("parseDuration", () => {
 });
 
 describe("formatDuration", () => {
-  it("formats decimal hours without trailing zeros", () => {
+  it("formats decimal hours with one decimal", () => {
     expect(formatDuration(5400)).toBe("1.5");
-    expect(formatDuration(900)).toBe("0.25");
+    expect(formatDuration(900)).toBe("0.3");
     expect(formatDuration(28800)).toBe("8");
     expect(formatDuration(0)).toBe("");
+    // A 1-minute worklog is still visible, not an empty cell.
+    expect(formatDuration(60)).toBe("0.0");
+  });
+
+  it("keeps two decimals for the cell editor", () => {
+    expect(formatDuration(900, "decimal", 2)).toBe("0.25");
+    expect(formatDuration(60, "decimal", 2)).toBe("0.02");
   });
 
   it("formats Jira style", () => {

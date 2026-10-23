@@ -42,7 +42,12 @@ export function parseDuration(input: string): ParseResult {
   return { ok: true, seconds };
 }
 
-export function formatDuration(seconds: number, format: DisplayFormat = "decimal"): string {
+/**
+ * Decimal hours are shown with one decimal (1.5, 0.3); `decimals: 2` gives the
+ * precise value used in the cell editor so an untouched edit never rounds time.
+ * Time under 3 minutes rounds to 0 but is still shown as "0.0", never blank.
+ */
+export function formatDuration(seconds: number, format: DisplayFormat = "decimal", decimals = 1): string {
   if (!seconds) return "";
   if (format === "jira") {
     const totalMinutes = Math.round(seconds / 60);
@@ -50,8 +55,9 @@ export function formatDuration(seconds: number, format: DisplayFormat = "decimal
     const m = totalMinutes % 60;
     return [h ? `${h}h` : "", m ? `${m}m` : ""].filter(Boolean).join(" ") || "0m";
   }
-  const hours = Math.round((seconds / 3600) * 100) / 100;
-  return String(hours);
+  const factor = 10 ** decimals;
+  const hours = Math.round((seconds / 3600) * factor) / factor;
+  return hours === 0 ? (0).toFixed(decimals) : String(hours);
 }
 
 const pad = (value: number) => String(value).padStart(2, "0");

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, LoaderCircle, Plus, Save, Trash2, XCircle } from "lucide-react";
 import { api, errorText } from "./api";
-import type { AppData, AppInfo, FilterGroup, JiraConnection, Settings } from "./types";
+import type { AppData, AppInfo, FilterGroup, JiraConnection, Settings, Theme } from "./types";
+import { applyTheme } from "./theme";
 
 interface Props {
   data: AppData;
@@ -45,6 +46,9 @@ export function SettingsView({ data, onSaved }: Props) {
   useEffect(reset, [data.settings]);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(data.settings);
+
+  // Preview the theme while choosing it; leaving Settings re-applies the saved one.
+  useEffect(() => applyTheme(draft.theme), [draft.theme]);
 
   const patchConnection = (id: string, patch: Partial<JiraConnection>) => {
     setDraft((current) => ({
@@ -300,6 +304,14 @@ export function SettingsView({ data, onSaved }: Props) {
               value={draft.dailyNormHours}
               onChange={(event) => setDraft({ ...draft, dailyNormHours: Number(event.target.value) || 8 })}
             />
+          </label>
+          <label>
+            Theme
+            <select value={draft.theme} onChange={(event) => setDraft({ ...draft, theme: event.target.value as Theme })}>
+              <option value="system">Same as system</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
           </label>
           <label>
             Show time as
