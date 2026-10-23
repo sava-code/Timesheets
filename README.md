@@ -1,4 +1,4 @@
-# Jira Timesheets (desktop)
+# Timesheets
 
 A desktop app for managing your Jira worklogs in a monthly, spreadsheet-like grid. It is a rewrite of the Python/Dash [jira-timesheets](https://github.com/mixaxa85/jira-timesheets) tool, built on the same stack as [TimeCollector_Next](https://github.com/VadVak/TimeCollector_Next) (Electron + React + TypeScript + Vite).
 
