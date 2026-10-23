@@ -195,11 +195,21 @@ async function updateWorklog(connection, { issueKey, worklogId, seconds, started
 }
 
 async function deleteWorklog(connection, { issueKey, worklogId }) {
-  await jiraRequest(
-    connection,
-    `/rest/api/${core.apiVersion(connection)}/issue/${encodeURIComponent(issueKey)}/worklog/${encodeURIComponent(worklogId)}?adjustEstimate=leave&notifyUsers=false`,
-    { method: "DELETE" }
-  );
+  try {
+    await jiraRequest(
+      connection,
+      `/rest/api/${core.apiVersion(connection)}/issue/${encodeURIComponent(issueKey)}/worklog/${encodeURIComponent(worklogId)}?adjustEstimate=leave&notifyUsers=false`,
+      { method: "DELETE" }
+    );
+  } catch (error) {
+    if (error.status === 403 || /permission to delete/i.test(error.message)) {
+      throw new Error(
+        "Jira does not let your account delete worklogs in this project (missing \"Delete Own Worklogs\" permission). " +
+          "Lower the time to at least 1m instead, or ask your Jira admin."
+      );
+    }
+    throw error;
+  }
   return { ok: true };
 }
 

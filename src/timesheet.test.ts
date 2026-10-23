@@ -93,14 +93,41 @@ describe("planCellEdit", () => {
     expect(planCellEdit([late, early], 7200)).toEqual([{ kind: "update", worklog: late, seconds: 3600 }]);
   });
 
-  it("removes time from the latest worklogs first, deleting ones that reach zero", () => {
+  it("lowers a single worklog by updating it, never deleting", () => {
+    const only = wl("1", "2026-10-05", 7200);
+    expect(planCellEdit([only], 1800)).toEqual([{ kind: "update", worklog: only, seconds: 1800 }]);
+    expect(planCellEdit([only], 60)).toEqual([{ kind: "update", worklog: only, seconds: 60 }]);
+  });
+
+  it("shrinks the latest worklog that can absorb the whole reduction", () => {
     const early = wl("1", "2026-10-05", 3600, "09:00");
     const late = wl("2", "2026-10-05", 1800, "14:00");
-    expect(planCellEdit([early, late], 2700)).toEqual([
-      { kind: "delete", worklog: late },
-      { kind: "update", worklog: early, seconds: 2700 }
+    // 1.5h -> 1h: the 30m worklog cannot give 30m and stay >= 1m, so the 1h one shrinks.
+    expect(planCellEdit([early, late], 3600)).toEqual([{ kind: "update", worklog: early, seconds: 1800 }]);
+    expect(planCellEdit([early, late], 4500)).toEqual([{ kind: "update", worklog: late, seconds: 900 }]);
+  });
+
+  it("spreads a large reduction from the newest worklogs, keeping each at 1 minute", () => {
+    const a = wl("1", "2026-10-05", 1800, "09:00");
+    const b = wl("2", "2026-10-05", 1800, "11:00");
+    const c = wl("3", "2026-10-05", 1800, "14:00");
+    // 1.5h -> 15m: nobody can give 75m alone.
+    expect(planCellEdit([a, b, c], 900)).toEqual([
+      { kind: "update", worklog: c, seconds: 60 },
+      { kind: "update", worklog: b, seconds: 60 },
+      { kind: "update", worklog: a, seconds: 780 }
     ]);
-    expect(planCellEdit([early, late], 3600)).toEqual([{ kind: "delete", worklog: late }]);
+  });
+
+  it("deletes only when the target is too small to keep every worklog", () => {
+    const a = wl("1", "2026-10-05", 1800, "09:00");
+    const b = wl("2", "2026-10-05", 1800, "11:00");
+    const c = wl("3", "2026-10-05", 1800, "14:00");
+    expect(planCellEdit([a, b, c], 120)).toEqual([
+      { kind: "delete", worklog: c },
+      { kind: "update", worklog: b, seconds: 60 },
+      { kind: "update", worklog: a, seconds: 60 }
+    ]);
   });
 
   it("deletes every worklog when the cell is cleared", () => {

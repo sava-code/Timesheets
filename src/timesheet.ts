@@ -86,11 +86,19 @@ export type EditOp =
   | { kind: "update"; worklog: Worklog; seconds: number }
   | { kind: "delete"; worklog: Worklog };
 
+/** Jira's smallest worklog. */
+export const MIN_WORKLOG_SECONDS = 60;
+
 /**
  * Turns "this cell should now hold `target` seconds" into Jira calls.
  * - Empty cell: create one worklog.
  * - More time: add the difference to the latest worklog of that day.
- * - Less time: take it from the latest worklogs first, deleting any that reach zero.
+ * - Less time: shrink worklogs instead of deleting them, because many Jira
+ *   setups let people edit their worklogs but not delete them. The latest
+ *   worklog that can absorb the whole reduction is shrunk; otherwise time is
+ *   taken from the latest ones first, keeping each at least 1 minute.
+ * - Worklogs are deleted only when the cell is cleared, or when the target is
+ *   too small to keep every worklog at 1 minute.
  */
 export function planCellEdit(worklogs: Worklog[], target: number): EditOp[] {
   const current = cellSeconds(worklogs);
@@ -100,22 +108,44 @@ export function planCellEdit(worklogs: Worklog[], target: number): EditOp[] {
   }
 
   const ordered = [...worklogs].sort((a, b) => a.started.localeCompare(b.started) || Number(a.id) - Number(b.id));
-  const latest = ordered[ordered.length - 1];
+  const newestFirst = [...ordered].reverse();
+  const latest = newestFirst[0];
 
   if (target > current) {
     return [{ kind: "update", worklog: latest, seconds: latest.seconds + (target - current) }];
   }
 
+  if (target === 0) {
+    return newestFirst.map((worklog) => ({ kind: "delete", worklog }));
+  }
+
+  // Too many worklogs to keep them all: delete the newest until the rest fit.
   const ops: EditOp[] = [];
-  let toRemove = current - target;
-  for (const worklog of [...ordered].reverse()) {
+  let kept = newestFirst;
+  while (kept.length * MIN_WORKLOG_SECONDS > target) {
+    ops.push({ kind: "delete", worklog: kept[0] });
+    kept = kept.slice(1);
+  }
+
+  let toRemove = cellSeconds(kept) - target;
+  if (toRemove <= 0) {
+    // Deleting already went below the target: put the rest back on the latest kept one.
+    if (toRemove < 0) ops.push({ kind: "update", worklog: kept[0], seconds: kept[0].seconds - toRemove });
+    return ops;
+  }
+
+  const single = kept.find((worklog) => worklog.seconds - MIN_WORKLOG_SECONDS >= toRemove);
+  if (single) {
+    ops.push({ kind: "update", worklog: single, seconds: single.seconds - toRemove });
+    return ops;
+  }
+
+  for (const worklog of kept) {
     if (toRemove <= 0) break;
-    if (worklog.seconds <= toRemove) {
-      ops.push({ kind: "delete", worklog });
-      toRemove -= worklog.seconds;
-    } else {
-      ops.push({ kind: "update", worklog, seconds: worklog.seconds - toRemove });
-      toRemove = 0;
+    const take = Math.min(worklog.seconds - MIN_WORKLOG_SECONDS, toRemove);
+    if (take > 0) {
+      ops.push({ kind: "update", worklog, seconds: worklog.seconds - take });
+      toRemove -= take;
     }
   }
   return ops;
