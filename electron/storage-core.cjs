@@ -1,6 +1,22 @@
 // Pure settings logic (no Electron imports) so it can be unit-tested.
 
-const DATA_VERSION = 3;
+const DATA_VERSION = 4;
+
+// Filters every installation starts with. Free: they list issues even without time logged this month.
+const DEFAULT_FILTERS = [
+  {
+    id: "viewed-recently",
+    label: "Viewed recently",
+    jql: "issuekey in issueHistory() order by lastViewed DESC",
+    free: true
+  },
+  {
+    id: "my-open-tickets",
+    label: "My open tickets",
+    jql: "assignee = currentUser() AND resolution = Unresolved order by updated DESC",
+    free: true
+  }
+];
 
 // Default look. Settings files from older versions are switched to it once (see mergeDefaults).
 const DEFAULT_APPEARANCE = {
@@ -38,7 +54,7 @@ function defaultData() {
       ...DEFAULT_APPEARANCE,
       // The "All" chip. Empty JQL: issues with your worklogs this month (+ each source's extra JQL).
       allFilter: { jql: "", free: false },
-      filters: [],
+      filters: DEFAULT_FILTERS.map((filter) => ({ ...filter })),
       jiraConnections: [defaultConnection(0)]
     }
   };
@@ -94,6 +110,16 @@ function normalizeConnection(connection, index) {
   };
 }
 
+// Settings from before version 4 get the default filters once, unless a filter with the same JQL exists.
+function withDefaultFilters(filters, version) {
+  if (version >= 4) return filters;
+  const sameJql = (a, b) => a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
+  const missing = DEFAULT_FILTERS.filter(
+    (preset) => !filters.some((filter) => filter.id === preset.id || sameJql(filter.jql, preset.jql))
+  );
+  return [...filters, ...missing.map((filter) => ({ ...filter }))];
+}
+
 function clampFontSize(value) {
   const size = Math.round(Number(value));
   return Number.isFinite(size) && size >= 10 && size <= 24 ? size : 12;
@@ -103,7 +129,8 @@ function mergeDefaults(data) {
   const defaults = defaultData();
   const settings = { ...defaults.settings, ...(data?.settings || {}) };
   // Older versions had a different default look; switch their settings files to the current one once.
-  if (data && Number(data.version) < DATA_VERSION) Object.assign(settings, DEFAULT_APPEARANCE);
+  const version = Number(data?.version) || 0;
+  if (data && version < 3) Object.assign(settings, DEFAULT_APPEARANCE);
   const norm = Number(settings.dailyNormHours);
   return {
     version: DATA_VERSION,
@@ -117,7 +144,10 @@ function mergeDefaults(data) {
       tableFontSize: clampFontSize(settings.tableFontSize),
       backgroundColor: /^#[0-9a-f]{6}$/i.test(String(settings.backgroundColor)) ? String(settings.backgroundColor).toLowerCase() : "",
       allFilter: normalizeAllFilter(settings.allFilter),
-      filters: Array.isArray(settings.filters) ? settings.filters.map(normalizeFilter) : [],
+      filters: withDefaultFilters(
+        Array.isArray(settings.filters) ? settings.filters.map(normalizeFilter) : [],
+        data ? version : DATA_VERSION
+      ),
       jiraConnections:
         Array.isArray(settings.jiraConnections) && settings.jiraConnections.length
           ? settings.jiraConnections.map(normalizeConnection)

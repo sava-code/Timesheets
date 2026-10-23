@@ -43,11 +43,39 @@ describe("storage-core", () => {
     for (const version of [1, 2]) {
       const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, backgroundColor: "" } });
       expect(old.settings).toMatchObject(DEFAULT_LOOK);
-      expect(old.version).toBe(3);
+      expect(old.version).toBe(4);
     }
     // From version 3 on, the user's choice is kept.
     const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" } });
     expect(chosen.settings).toMatchObject({ theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" });
+  });
+
+  it("starts with the default free filters and adds them once to older settings", () => {
+    const presets = core.defaultData().settings.filters;
+    expect(presets).toEqual([
+      { id: "viewed-recently", label: "Viewed recently", jql: "issuekey in issueHistory() order by lastViewed DESC", free: true },
+      {
+        id: "my-open-tickets",
+        label: "My open tickets",
+        jql: "assignee = currentUser() AND resolution = Unresolved order by updated DESC",
+        free: true
+      }
+    ]);
+    // Version 3 user with their own filters, one of them already the same JQL: only the missing one is added, at the end.
+    const old = core.mergeDefaults({
+      version: 3,
+      settings: {
+        filters: [
+          { id: "s", label: "Support", jql: "project = SUP" },
+          { id: "mine", label: "Mine", jql: "assignee = currentUser()  AND resolution = Unresolved ORDER BY updated DESC", free: false }
+        ]
+      }
+    });
+    expect(old.settings.filters.map((filter) => filter.label)).toEqual(["Support", "Mine", "Viewed recently"]);
+    // Version 3 keeps its appearance (only versions before 3 were reset).
+    expect(core.mergeDefaults({ version: 3, settings: { theme: "dark" } }).settings.theme).toBe("dark");
+    // From version 4 on, deleted presets stay deleted.
+    expect(core.mergeDefaults({ version: 4, settings: { filters: [] } }).settings.filters).toEqual([]);
   });
 
   it("validates the background colour and the All/free filter settings", () => {

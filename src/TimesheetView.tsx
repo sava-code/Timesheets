@@ -582,6 +582,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
             <tr className="dayRow">
               <th className="keyCol">Key</th>
               <th className="summaryCol">Summary</th>
+              <th className="totalCol">Total</th>
               {days.map((day) => (
                 <th
                   key={day.key}
@@ -591,19 +592,18 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                   <span className="dayName">{day.weekday}</span>
                 </th>
               ))}
-              <th className="totalCol">Total</th>
             </tr>
             <tr className="totalsRow">
               <th className="keyCol" />
               <th className="summaryCol">
                 {narrowJql || search.trim() ? `Total · ${rows.length} of ${allRows.length} issues` : `Total · ${rows.length} issues`}
               </th>
+              <th className="totalCol">{formatDuration(filteredTotal, format)}</th>
               {days.map((day) => (
                 <th key={day.key} className={["dayCol", totalClass(day.key, day.isWeekend, totals[day.key])].join(" ")}>
                   {formatDuration(totals[day.key], format)}
                 </th>
               ))}
-              <th className="totalCol">{formatDuration(filteredTotal, format)}</th>
             </tr>
           </thead>
           <tbody>
@@ -625,6 +625,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                 <td className="summaryCol" title={row.issue.summary}>
                   <span className="summaryText">{row.issue.summary}</span>
                 </td>
+                <td className="totalCol">{formatDuration(row.total, format)}</td>
                 {days.map((day) => {
                   const cell = { row: row.id, day: day.key };
                   const id = cellId(cell);
@@ -686,7 +687,6 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                     </td>
                   );
                 })}
-                <td className="totalCol">{formatDuration(row.total, format)}</td>
               </tr>
             ))}
             {!rows.length && !loading && !freeLoading && !narrowLoading && (

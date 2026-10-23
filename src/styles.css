@@ -439,11 +439,11 @@ button:focus-visible {
   min-width: calc(var(--u) * 24.3);
   max-width: calc(var(--u) * 24.3);
   text-align: left;
-  border-right: 2px solid var(--border-strong);
 }
 
 .grid thead .keyCol,
-.grid thead .summaryCol {
+.grid thead .summaryCol,
+.grid thead .totalCol {
   z-index: 3;
 }
 
@@ -542,12 +542,16 @@ tr:hover .unpin {
   background: var(--danger-soft);
 }
 
+/* Right after Summary and frozen with Key and Summary; the thick line separates them from the days. */
 .grid .totalCol {
+  position: sticky;
+  left: calc(var(--u) * (7.85 + 24.3)); /* = Key + Summary widths */
+  z-index: 1;
   width: calc(var(--u) * 4.6);
   min-width: calc(var(--u) * 4.6);
   text-align: right;
   font-weight: 600;
-  border-left: 2px solid var(--border-strong);
+  border-right: 2px solid var(--border-strong);
 }
 
 .grid tbody tr:hover td {
@@ -1055,6 +1059,11 @@ label.check.standalone {
 [data-theme="classic"] .grid tbody td {
   border-color: rgb(211, 211, 211);
   border-width: 0 0.5px 0.5px 0;
+}
+
+/* Keep the separator between the frozen columns (Key, Summary, Total) and the days */
+[data-theme="classic"] .grid tbody td.totalCol {
+  border-right: 2px solid rgb(211, 211, 211);
 }
 
 /* Rows 24px at the original 12px (the day header keeps its height: it holds two lines) */
