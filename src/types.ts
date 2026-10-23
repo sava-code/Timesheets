@@ -40,6 +40,9 @@ export interface Settings {
   tableFont: string;
   /** Pixels. */
   tableFontSize: number;
+  tableBold: boolean;
+  /** "#rrggbb" for the window and table background, or "" for the theme default. */
+  backgroundColor: string;
   filters: FilterGroup[];
   jiraConnections: JiraConnection[];
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, LoaderCircle, Plus, Save, Trash2, XCircle } from "lucide-react";
 import { api, errorText } from "./api";
 import type { AppData, AppInfo, FilterGroup, JiraConnection, Settings, Theme } from "./types";
-import { applyTheme } from "./theme";
+import { applyTheme, themeBackground } from "./theme";
 import { TABLE_FONT_SIZES, TABLE_FONTS, tableFontStack } from "./fonts";
 
 interface Props {
@@ -47,7 +47,7 @@ export function SettingsView({ data, onSaved }: Props) {
   const dirty = JSON.stringify(draft) !== JSON.stringify(data.settings);
 
   // Preview the theme while choosing it; leaving Settings re-applies the saved one.
-  useEffect(() => applyTheme(draft.theme), [draft.theme]);
+  useEffect(() => applyTheme(draft.theme, draft.backgroundColor), [draft.theme, draft.backgroundColor]);
 
   const patchConnection = (id: string, patch: Partial<JiraConnection>) => {
     setDraft((current) => ({
@@ -337,6 +337,33 @@ export function SettingsView({ data, onSaved }: Props) {
                 </option>
               ))}
             </select>
+          </label>
+          <label>
+            Table text
+            <select
+              value={draft.tableBold ? "bold" : "normal"}
+              onChange={(event) => setDraft({ ...draft, tableBold: event.target.value === "bold" })}
+            >
+              <option value="bold">Bold</option>
+              <option value="normal">Regular</option>
+            </select>
+          </label>
+          <label>
+            Background colour
+            <span className="colorField">
+              <input
+                type="color"
+                aria-label="Background colour"
+                value={draft.backgroundColor || themeBackground(draft.theme)}
+                onChange={(event) => setDraft({ ...draft, backgroundColor: event.target.value })}
+              />
+              <span className="colorValue">{draft.backgroundColor || "Theme default"}</span>
+              {draft.backgroundColor && (
+                <button type="button" className="ghost" onClick={() => setDraft({ ...draft, backgroundColor: "" })}>
+                  Reset
+                </button>
+              )}
+            </span>
           </label>
           <label>
             Show time as

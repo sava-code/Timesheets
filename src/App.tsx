@@ -15,7 +15,8 @@ export default function App() {
 
   // The saved theme; Settings previews unsaved choices itself and restores this on leave.
   const savedTheme = data?.settings.theme ?? "classic";
-  useEffect(() => applyTheme(savedTheme), [savedTheme, view]);
+  const savedBackground = data?.settings.backgroundColor ?? "";
+  useEffect(() => applyTheme(savedTheme, savedBackground), [savedTheme, savedBackground, view]);
 
   useEffect(() => {
     api()

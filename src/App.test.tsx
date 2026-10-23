@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -157,6 +157,33 @@ describe("Timesheet grid", () => {
     const grid = document.querySelector<HTMLElement>(".gridWrap")!;
     expect(grid.style.getPropertyValue("--grid-font-size")).toBe("18px");
     expect(grid.style.getPropertyValue("--grid-font")).toMatch(/monospace/);
+  });
+
+  it("applies bold text and a custom background colour, and resets to the theme default", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("INT-15");
+    expect(screen.getByRole("columnheader", { name: "Summary" })).toBeInTheDocument();
+    const grid = () => document.querySelector<HTMLElement>(".gridWrap")!;
+    expect(grid().style.getPropertyValue("--grid-weight")).toBe("700");
+
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.selectOptions(await screen.findByLabelText("Table text"), "normal");
+    const picker = screen.getByLabelText("Background colour", { selector: "input" }) as HTMLInputElement;
+    fireEvent.input(picker, { target: { value: "#fdf6e3" } });
+    expect(document.documentElement.style.getPropertyValue("--bg")).toBe("#fdf6e3");
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    await screen.findByText("INT-15");
+    expect(grid().style.getPropertyValue("--grid-weight")).toBe("400");
+    expect(document.documentElement.style.getPropertyValue("--bg")).toBe("#fdf6e3");
+
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("button", { name: "Reset" }));
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    expect(document.documentElement.style.getPropertyValue("--bg")).toBe("");
   });
 
   it("filters rows with a JQL filter", async () => {

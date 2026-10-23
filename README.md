@@ -15,7 +15,7 @@ Jira is the only source of truth. Each cell shows your own logged time on one is
 - **Daily norm.** The daily totals row is green when a past working day reaches the norm, amber when it is short and red when it is empty. The header shows hours logged, the norm to date and the month norm.
 - **Sorted by time.** Issues with the most logged time in the month come first. The order is set when the month loads or refreshes, so rows don't jump while you type.
 - **Table font and size** are adjustable in Settings; the whole table scales with the size.
-- **Themes.** The default *Classic* theme and table font (Segoe UI/Arial, 12px) give the table the look of the original Python app; the rest of the app uses the light style. Light, dark and "same as system" are also available (Settings → Timesheet). Decimal hours are shown with one decimal; the cell editor shows the exact value.
+- **Look.** The table heading rows use the app header colour and the table sits on the window background. In Settings you can pick the theme (default *Classic*, with table details from the original Python app; also light, dark or same as system), the table font and size (default Segoe UI/Arial 12px), bold or regular table text (bold by default) and a custom background colour for the window and table. Decimal hours are shown with one decimal; the cell editor shows the exact value.
 - **Activity log** with every change sent to Jira and any error.
 - **Credentials** are encrypted with the OS keychain (Electron `safeStorage`). The app refuses to store them as plain text.
 

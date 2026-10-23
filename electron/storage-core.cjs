@@ -4,6 +4,7 @@ const DATA_VERSION = 2;
 
 // Appearance of the original Python/Dash app, used as the default.
 const ORIGINAL_APPEARANCE = { theme: "classic", tableFont: "segoe", tableFontSize: 12 };
+const DEFAULT_BACKGROUND = "";
 
 function makeId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -31,6 +32,8 @@ function defaultData() {
       showWeekends: false,
       displayFormat: "decimal",
       ...ORIGINAL_APPEARANCE,
+      tableBold: true,
+      backgroundColor: DEFAULT_BACKGROUND,
       filters: [],
       jiraConnections: [defaultConnection(0)]
     },
@@ -119,6 +122,8 @@ function mergeDefaults(data) {
       theme: ["classic", "light", "dark", "system"].includes(settings.theme) ? settings.theme : "classic",
       tableFont: /^[a-z0-9-]{1,32}$/.test(String(settings.tableFont)) ? String(settings.tableFont) : "segoe",
       tableFontSize: clampFontSize(settings.tableFontSize),
+      tableBold: settings.tableBold !== false,
+      backgroundColor: /^#[0-9a-f]{6}$/i.test(String(settings.backgroundColor)) ? String(settings.backgroundColor).toLowerCase() : "",
       filters: Array.isArray(settings.filters) ? settings.filters.map(normalizeFilter) : [],
       jiraConnections:
         Array.isArray(settings.jiraConnections) && settings.jiraConnections.length

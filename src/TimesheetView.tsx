@@ -505,7 +505,8 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
         style={
           {
             "--grid-font": tableFontStack(settings.tableFont),
-            "--grid-font-size": `${settings.tableFontSize}px`
+            "--grid-font-size": `${settings.tableFontSize}px`,
+            "--grid-weight": settings.tableBold ? 700 : 400
           } as CSSProperties
         }
         onKeyDown={onGridKeyDown}
@@ -515,7 +516,7 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
           <thead>
             <tr className="dayRow">
               <th className="keyCol">Key</th>
-              <th className="summaryCol">Issue</th>
+              <th className="summaryCol">Summary</th>
               {days.map((day) => (
                 <th
                   key={day.key}

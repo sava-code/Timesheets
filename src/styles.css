@@ -435,7 +435,7 @@ tr:hover .unpin {
 .keyCol a {
   color: var(--accent);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: inherit; /* follows the table's bold setting */
 }
 
 .keyCol a:hover {
@@ -809,6 +809,26 @@ label.check.standalone {
   margin-top: 8px;
 }
 
+.colorField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+
+.colorField input[type="color"] {
+  width: 44px;
+  height: 32px;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.colorValue {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text);
+}
+
 .appInfo {
   color: var(--muted);
   font-size: 12px;
@@ -831,24 +851,85 @@ label.check.standalone {
 }
 
 /* ---------------------------------------------------------------------------
-   Classic theme: the TABLE of the original Python/Dash jira-timesheets app.
-   Only the table changes; the rest of the app keeps the light theme.
-   Values come from its assets/style.css and the inline styles in app.py:
-   - "Segoe UI", Arial, sans-serif 12px (the default table font setting); rows 24px
-   - header (style_header): bold, background #333333, border-style none
-   - totals row (.dt-table-container__row-0): bold #ffffff on #333333;
-     days under the norm (td.red): bold #ffffff on #FD625E
-   - row hover #e6f7ff; focused cell white; cell borders 0.5px, Dash default rgb(211,211,211)
-   - issue keys: plain markdown links, the browser's default link colour
+   Table look shared by all themes:
+   - heading rows (days + totals) use the app header colour
+   - the table background is the window background (adjustable in Settings)
+   - text weight comes from Settings (bold by default)
+   - days under the norm: bold white on #FD625E, as in the original app
+   --------------------------------------------------------------------------- */
+
+.gridWrap {
+  --surface: var(--bg);
+  --surface-2: var(--bg);
+  --head-line: color-mix(in srgb, var(--header-text) 14%, var(--header));
+  background: var(--bg);
+}
+
+.gridWrap .grid {
+  font-weight: var(--grid-weight, 400);
+}
+
+.gridWrap .grid thead th,
+.gridWrap .grid .dayRow th,
+.gridWrap .grid .totalsRow th {
+  background: var(--header);
+  color: var(--header-text);
+  font-weight: 700;
+  border-color: var(--head-line);
+}
+
+.gridWrap .grid .totalsRow th {
+  border-bottom: 0;
+}
+
+.gridWrap .dayRow .dayNum {
+  color: var(--header-text);
+}
+
+.gridWrap .dayRow .dayName {
+  color: color-mix(in srgb, var(--header-text) 62%, var(--header));
+}
+
+.gridWrap .grid .dayRow th.today {
+  background: color-mix(in srgb, var(--header-text) 12%, var(--header));
+}
+
+.gridWrap .grid .dayRow th.today .dayNum {
+  color: #ffcf70;
+}
+
+/* Same size for the "Key", "Summary", "Total" labels and the "Total · N issues" label */
+.gridWrap .grid thead .keyCol,
+.gridWrap .grid thead .summaryCol,
+.gridWrap .grid thead .totalCol {
+  font-size: 1em;
+  color: var(--header-text);
+  font-weight: 700;
+}
+
+.gridWrap .grid .totalsRow .met {
+  background: var(--header);
+  color: var(--header-text);
+}
+
+.gridWrap .grid .totalsRow .under,
+.gridWrap .grid .totalsRow .empty {
+  background: #fd625e;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------
+   Classic theme: table details of the original Python/Dash jira-timesheets app
+   (assets/style.css and app.py): 24px rows at 12px, 0.5px rgb(211,211,211) lines,
+   #e6f7ff row hover, white focused cell, default link blue.
    --------------------------------------------------------------------------- */
 
 [data-theme="classic"] .gridWrap {
   --border: rgb(211, 211, 211);
   --border-strong: rgb(211, 211, 211);
-  --surface: #ffffff;
-  --surface-2: #ffffff;
-  --weekend: #ffffff;
-  --today: #ffffff;
+  --weekend: var(--bg);
+  --today: var(--bg);
   border-radius: 0;
   border-color: rgb(211, 211, 211);
 }
@@ -857,8 +938,7 @@ label.check.standalone {
   color: #000000;
 }
 
-[data-theme="classic"] .grid th,
-[data-theme="classic"] .grid td {
+[data-theme="classic"] .grid tbody td {
   border-color: rgb(211, 211, 211);
   border-width: 0 0.5px 0.5px 0;
 }
@@ -869,41 +949,9 @@ label.check.standalone {
   height: calc(var(--u) * 2);
 }
 
-[data-theme="classic"] .grid thead th,
-[data-theme="classic"] .grid .dayRow th,
-[data-theme="classic"] .grid .totalsRow th {
-  background: #333333;
-  color: #ffffff;
-  font-weight: bold;
-  border-color: #333333; /* style_header border-style: none */
-}
-
-[data-theme="classic"] .dayRow .dayNum,
-[data-theme="classic"] .dayRow .dayName,
-[data-theme="classic"] .grid .totalsRow .summaryCol,
-[data-theme="classic"] .grid .dayRow th.today .dayNum {
-  color: #ffffff;
-}
-
-[data-theme="classic"] .grid .dayRow th.today {
-  background: #333333;
-}
-
-[data-theme="classic"] .grid .totalsRow .met {
-  background: #333333;
-  color: #ffffff;
-}
-
-[data-theme="classic"] .grid .totalsRow .under,
-[data-theme="classic"] .grid .totalsRow .empty {
-  background: #fd625e;
-  color: #ffffff;
-  font-weight: bold;
-}
-
 [data-theme="classic"] .grid .weekend,
 [data-theme="classic"] .grid td.today:not(.selected) {
-  background: #ffffff;
+  background: var(--bg);
 }
 
 [data-theme="classic"] .grid tbody tr:hover td,
@@ -912,7 +960,6 @@ label.check.standalone {
   background: #e6f7ff;
 }
 
-/* td.focused: white background */
 [data-theme="classic"] .grid td.cell.selected {
   background: #ffffff;
   box-shadow: inset 0 0 0 1px var(--selected);
@@ -920,5 +967,4 @@ label.check.standalone {
 
 [data-theme="classic"] .keyCol a {
   color: #0000ee;
-  font-weight: normal;
 }

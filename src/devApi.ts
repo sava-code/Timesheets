@@ -68,6 +68,8 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
       theme: "classic",
       tableFont: "segoe",
       tableFontSize: 12,
+      tableBold: true,
+      backgroundColor: "",
       filters: [
         { id: "f1", label: "Support", jql: "project = SUP" },
         { id: "f2", label: "Implementation", jql: "project = IMPL" },

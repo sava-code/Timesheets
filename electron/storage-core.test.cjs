@@ -43,6 +43,14 @@ describe("storage-core", () => {
     expect(chosen.settings).toMatchObject({ theme: "dark", tableFont: "mono", tableFontSize: 16 });
   });
 
+  it("validates bold and background colour settings", () => {
+    expect(core.defaultData().settings).toMatchObject({ tableBold: true, backgroundColor: "" });
+    const good = core.mergeDefaults({ version: 2, settings: { tableBold: false, backgroundColor: "#FDF6E3" } });
+    expect(good.settings).toMatchObject({ tableBold: false, backgroundColor: "#fdf6e3" });
+    const bad = core.mergeDefaults({ version: 2, settings: { backgroundColor: "red; background: url(x)" } });
+    expect(bad.settings.backgroundColor).toBe("");
+  });
+
   it("encrypts new secrets, keeps old ones and never exposes them", () => {
     const existing = core.mergeDefaults({ settings: { jiraConnections: [{ id: "a" }, { id: "b" }] } });
     existing.settings.jiraConnections[1].tokenCipher = "old";
