@@ -120,13 +120,29 @@ describe("Timesheet grid", () => {
     expect(document.documentElement.dataset.theme).toBe("dark");
   });
 
-  it("filters rows by project group", async () => {
+  it("filters rows with a JQL filter", async () => {
     const user = userEvent.setup();
+    const match = vi.spyOn(window.timesheets, "matchFilter");
     render(<App />);
     await screen.findByText("INT-15");
     await user.click(screen.getByRole("radio", { name: "Support" }));
-    expect(screen.queryByText("INT-15")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("INT-15")).not.toBeInTheDocument());
+    expect(screen.getByText("SUP-1042")).toBeInTheDocument();
+    expect(match).toHaveBeenCalledWith("project = SUP", expect.objectContaining({ main: expect.arrayContaining(["INT-15"]) }));
     await user.click(screen.getByRole("radio", { name: "All" }));
+    expect(screen.getByText("INT-15")).toBeInTheDocument();
+  });
+
+  it("reports a broken filter JQL and falls back to All", async () => {
+    const api = window.timesheets;
+    const original = await api.loadData();
+    await api.saveData({ ...original, settings: { ...original.settings, filters: [{ id: "bad", label: "Broken", jql: "status = !!" }] } });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("INT-15");
+    await user.click(screen.getByRole("radio", { name: "Broken" }));
+    expect(await screen.findByText(/Filter "Broken".*Error in the JQL Query/)).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "All" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByText("INT-15")).toBeInTheDocument();
   });
 });

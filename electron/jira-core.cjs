@@ -41,6 +41,25 @@ function monthWorklogJql(month) {
   return `worklogAuthor = currentUser() AND worklogDate >= "${from}" AND worklogDate <= "${to}" ORDER BY key ASC`;
 }
 
+// "ORDER BY" can't be wrapped in parentheses, and order doesn't matter for matching.
+function stripOrderBy(jql) {
+  return String(jql || "").replace(/\s+order\s+by\s+[\s\S]*$/i, "").trim();
+}
+
+/** Restricts a user's JQL to the given issue keys, e.g. (assignee = currentUser()) AND key in ("A-1","B-2"). */
+function restrictJqlToKeys(jql, keys) {
+  const base = stripOrderBy(jql);
+  if (!base) throw new Error("Filter JQL is empty.");
+  const list = keys.map((key) => `"${String(key).replace(/"/g, "")}"`).join(",");
+  return `(${base}) AND key in (${list})`;
+}
+
+function chunk(items, size) {
+  const result = [];
+  for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
+  return result;
+}
+
 // The date part of Jira's "started" timestamp, as recorded by Jira for the author.
 function worklogDateKey(started) {
   return String(started || "").slice(0, 10);
@@ -151,6 +170,9 @@ async function mapLimit(items, limit, worker) {
 
 module.exports = {
   apiVersion,
+  chunk,
+  restrictJqlToKeys,
+  stripOrderBy,
   buildAuthHeader,
   commentText,
   errorMessage,

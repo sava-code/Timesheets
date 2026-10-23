@@ -50,10 +50,16 @@ function normalizeKeys(keys) {
 }
 
 function normalizeFilter(filter) {
+  let jql = String(filter?.jql || "").trim();
+  if (!jql) {
+    // Filters from earlier versions were lists of project keys.
+    const keys = normalizeKeys(filter?.projectKeys);
+    if (keys.length) jql = `project in (${keys.join(", ")})`;
+  }
   return {
     id: String(filter?.id || makeId("filter")),
     label: String(filter?.label || "").trim() || "Filter",
-    projectKeys: normalizeKeys(filter?.projectKeys)
+    jql
   };
 }
 

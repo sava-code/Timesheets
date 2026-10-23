@@ -21,7 +21,12 @@ export interface JiraConnection {
 export interface FilterGroup {
   id: string;
   label: string;
-  projectKeys: string[];
+  jql: string;
+}
+
+export interface FilterMatch {
+  matches: Record<string, string[]>;
+  errors: SourceError[];
 }
 
 export interface Settings {
@@ -96,6 +101,8 @@ export interface TimesheetsApi {
   saveData: (data: AppData) => Promise<AppData>;
   fetchMonth: (month: string) => Promise<MonthResult>;
   addIssue: (sourceId: string, issueKey: string) => Promise<{ data: AppData; issue: Issue }>;
+  /** Which of the given issue keys (per source) match the JQL. */
+  matchFilter: (jql: string, keysBySource: Record<string, string[]>) => Promise<FilterMatch>;
   createWorklog: (sourceId: string, payload: { issueKey: string; date: string; seconds: number }) => Promise<Worklog>;
   updateWorklog: (
     sourceId: string,

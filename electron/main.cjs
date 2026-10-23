@@ -106,6 +106,28 @@ ipcMain.handle("jira:addIssue", async (_event, sourceId, issueKey) => {
   return { data: sanitizeData(data), issue };
 });
 
+// Runs a filter JQL on each source, limited to the issues currently in the timesheet.
+ipcMain.handle("jira:matchFilter", async (_event, jql, keysBySource) => {
+  const data = readRawData();
+  const matches = {};
+  const errors = [];
+  await Promise.all(
+    Object.entries(keysBySource || {}).map(async ([sourceId, keys]) => {
+      if (!Array.isArray(keys) || !keys.length) {
+        matches[sourceId] = [];
+        return;
+      }
+      const connection = findConnection(data, sourceId);
+      try {
+        matches[sourceId] = await jira.matchFilter(connection, jql, keys);
+      } catch (error) {
+        errors.push({ sourceId, sourceName: connection.name, message: error.message });
+      }
+    })
+  );
+  return { matches, errors };
+});
+
 ipcMain.handle("jira:createWorklog", async (_event, sourceId, payload) => {
   const data = readRawData();
   return jira.createWorklog(findConnection(data, sourceId), {

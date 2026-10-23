@@ -9,6 +9,15 @@ describe("jira-core", () => {
     expect(() => core.monthRange("2026-2")).toThrow();
   });
 
+  it("restricts a filter JQL to the timesheet's issue keys", () => {
+    expect(core.restrictJqlToKeys("project = SUP ORDER BY created DESC", ["SUP-1", "SUP-2"])).toBe(
+      '(project = SUP) AND key in ("SUP-1","SUP-2")'
+    );
+    expect(core.restrictJqlToKeys("labels = a OR labels = b", ["X-1"])).toBe('(labels = a OR labels = b) AND key in ("X-1")');
+    expect(() => core.restrictJqlToKeys("  ", ["X-1"])).toThrow(/empty/);
+    expect(core.chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+  });
+
   it("builds auth headers", () => {
     expect(core.buildAuthHeader({ authType: "bearer" }, "abc")).toBe("Bearer abc");
     expect(core.buildAuthHeader({ authType: "basic", email: "u" }, "p")).toBe(`Basic ${Buffer.from("u:p").toString("base64")}`);

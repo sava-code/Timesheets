@@ -1,4 +1,4 @@
-import type { FilterGroup, Issue, MonthResult, PinnedIssue, Worklog } from "./types";
+import type { Issue, MonthResult, PinnedIssue, Worklog } from "./types";
 import { monthDays, type MonthDay } from "./time";
 
 export interface Row {
@@ -56,11 +56,25 @@ export function buildRows(result: MonthResult | null, pinned: PinnedIssue[]): Ro
   return [...rows.values()].sort(compareRows);
 }
 
-export function filterRows(rows: Row[], filter: FilterGroup | null, search: string): Row[] {
+/** Issue keys of each Jira source, as sent to a JQL filter. */
+export function keysBySource(rows: Row[]): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const row of rows) (result[row.issue.sourceId] ||= []).push(row.issue.key);
+  return result;
+}
+
+/** Row ids for the keys a JQL filter matched, per source. */
+export function matchedRowIds(matches: Record<string, string[]>): Set<string> {
+  const ids = new Set<string>();
+  for (const [sourceId, keys] of Object.entries(matches)) keys.forEach((key) => ids.add(rowId(sourceId, key)));
+  return ids;
+}
+
+/** `matched` is the set of row ids a JQL filter matched, or null for "All". */
+export function filterRows(rows: Row[], matched: Set<string> | null, search: string): Row[] {
   const query = search.trim().toLowerCase();
-  const keys = filter ? new Set(filter.projectKeys) : null;
   return rows.filter((row) => {
-    if (keys && !keys.has(row.issue.projectKey.toUpperCase())) return false;
+    if (matched && !matched.has(row.id)) return false;
     if (!query) return true;
     return row.issue.key.toLowerCase().includes(query) || row.issue.summary.toLowerCase().includes(query);
   });

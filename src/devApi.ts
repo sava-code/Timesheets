@@ -67,9 +67,9 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
       displayFormat: "decimal",
       theme: "system",
       filters: [
-        { id: "f1", label: "Support", projectKeys: ["SUP"] },
-        { id: "f2", label: "Implementation", projectKeys: ["IMPL"] },
-        { id: "f3", label: "SME", projectKeys: ["ARCH", "BA"] }
+        { id: "f1", label: "Support", jql: "project = SUP" },
+        { id: "f2", label: "Implementation", jql: "project = IMPL" },
+        { id: "f3", label: "SME", jql: "project in (ARCH, BA)" }
       ],
       jiraConnections: [
         { id: "main", name: "Delivery Jira", baseUrl: "https://jira.example.com", apiVersion: "2", authType: "bearer", email: "", extraJql: "filter = worklogs", enabled: true, tokenPresent: true },
@@ -137,6 +137,18 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
         data.pinnedIssues.push({ sourceId, key });
       }
       return { data: structuredClone(data), issue: issue(sourceId, key, `Issue ${key}`) };
+    },
+    // Demo only: understands project names in the JQL (project = X / project in (X, Y)).
+    matchFilter: async (jql, keys) => {
+      await delay(300);
+      if (/!!/.test(jql)) {
+        return { matches: {}, errors: [{ sourceId: "main", sourceName: "Delivery Jira", message: "Error in the JQL Query" }] };
+      }
+      const words = new Set(jql.toUpperCase().match(/[A-Z][A-Z0-9_]+/g) || []);
+      const matches = Object.fromEntries(
+        Object.entries(keys).map(([sourceId, list]) => [sourceId, list.filter((key) => words.has(key.split("-")[0]))])
+      );
+      return { matches, errors: [] };
     },
     createWorklog: async (sourceId, payload) => {
       await delay();

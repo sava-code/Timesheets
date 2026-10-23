@@ -59,7 +59,7 @@ function getMyself(connection) {
   return jiraRequest(connection, `/rest/api/${core.apiVersion(connection)}/myself`, { method: "GET" });
 }
 
-async function searchAllIssues(connection, jql) {
+async function searchAllIssues(connection, jql, fields = ISSUE_FIELDS) {
   const version = core.apiVersion(connection);
   const issues = [];
 
@@ -69,7 +69,7 @@ async function searchAllIssues(connection, jql) {
       do {
         const payload = await jiraRequest(connection, "/rest/api/3/search/jql", {
           method: "POST",
-          body: { jql, fields: ISSUE_FIELDS, maxResults: 100, ...(nextPageToken ? { nextPageToken } : {}) }
+          body: { jql, fields, maxResults: 100, ...(nextPageToken ? { nextPageToken } : {}) }
         });
         issues.push(...(payload?.issues || []));
         nextPageToken = payload?.isLast ? undefined : payload?.nextPageToken;
@@ -84,7 +84,7 @@ async function searchAllIssues(connection, jql) {
   for (;;) {
     const payload = await jiraRequest(connection, `/rest/api/${version}/search`, {
       method: "POST",
-      body: { jql, fields: ISSUE_FIELDS, startAt, maxResults: 100 }
+      body: { jql, fields, startAt, maxResults: 100 }
     });
     const page = payload?.issues || [];
     issues.push(...page);
@@ -213,6 +213,16 @@ async function deleteWorklog(connection, { issueKey, worklogId }) {
   return { ok: true };
 }
 
+/** Which of `keys` match a filter JQL. Keys are sent in batches to keep each query short. */
+async function matchFilter(connection, jql, keys) {
+  const matched = [];
+  for (const batch of core.chunk([...new Set(keys)], 100)) {
+    const issues = await searchAllIssues(connection, core.restrictJqlToKeys(jql, batch), ["summary"]);
+    matched.push(...issues.map((issue) => issue.key));
+  }
+  return matched;
+}
+
 async function testConnection(connection) {
   const myself = await getMyself(connection);
   return {
@@ -227,6 +237,7 @@ module.exports = {
   deleteWorklog,
   fetchSourceMonth,
   lookupIssue,
+  matchFilter,
   testConnection,
   updateWorklog
 };

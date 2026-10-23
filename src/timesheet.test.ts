@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MonthResult, Worklog } from "./types";
-import { buildRows, dayTotals, filterRows, planCellEdit, updateSourceWorklogs, visibleDays } from "./timesheet";
+import { buildRows, dayTotals, filterRows, keysBySource, matchedRowIds, planCellEdit, updateSourceWorklogs, visibleDays } from "./timesheet";
 
 const wl = (id: string, date: string, seconds: number, time = "09:00", comment = ""): Worklog => ({
   id,
@@ -62,8 +62,15 @@ describe("buildRows", () => {
     expect(rows.find((row) => row.id === "a:INT-1")!.pinned).toBe(true);
   });
 
-  it("filters by project keys and search text", () => {
-    expect(filterRows(rows, { id: "f", label: "", projectKeys: ["INT"] }, "")).toHaveLength(1);
+  it("sends keys per source to a JQL filter and filters by its matches", () => {
+    expect(keysBySource(rows)).toEqual({ a: ["INT-1", "SUP-9", "SUP-10"], b: ["SUP-9"] });
+    // The same key in another Jira only matches there.
+    const matched = matchedRowIds({ a: ["INT-1"], b: ["SUP-9"] });
+    expect(filterRows(rows, matched, "").map((row) => row.id)).toEqual(["a:INT-1", "b:SUP-9"]);
+    expect(filterRows(rows, new Set(), "")).toHaveLength(0);
+  });
+
+  it("filters by search text", () => {
     expect(filterRows(rows, null, "sup-1")).toHaveLength(1);
     expect(filterRows(rows, null, "summary")).toHaveLength(4);
   });

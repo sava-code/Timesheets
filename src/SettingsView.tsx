@@ -28,7 +28,6 @@ function newConnection(index: number): JiraConnection {
 
 export function SettingsView({ data, onSaved }: Props) {
   const [draft, setDraft] = useState<Settings>(data.settings);
-  const [keysText, setKeysText] = useState<Record<string, string>>({});
   const [tests, setTests] = useState<Record<string, TestState>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -40,7 +39,6 @@ export function SettingsView({ data, onSaved }: Props) {
 
   const reset = () => {
     setDraft(data.settings);
-    setKeysText(Object.fromEntries(data.settings.filters.map((item) => [item.id, item.projectKeys.join(", ")])));
   };
 
   useEffect(reset, [data.settings]);
@@ -240,15 +238,17 @@ export function SettingsView({ data, onSaved }: Props) {
       <section className="panel">
         <div className="panelHead">
           <div>
-            <h3>Project filters</h3>
-            <p>Quick filters above the timesheet. Each one shows issues from the listed project keys.</p>
+            <h3>Filters</h3>
+            <p>
+              Quick filters above the timesheet. Each one shows the timesheet issues that match its JQL, e.g.{" "}
+              <code>project in (SUP, OPS)</code> or <code>labels = support</code>.
+            </p>
           </div>
           <button
             className="secondary"
             onClick={() => {
               const id = newId("filter");
-              setKeysText((current) => ({ ...current, [id]: "" }));
-              setDraft((current) => ({ ...current, filters: [...current.filters, { id, label: "", projectKeys: [] }] }));
+              setDraft((current) => ({ ...current, filters: [...current.filters, { id, label: "", jql: "" }] }));
             }}
           >
             <Plus size={15} /> Add filter
@@ -263,14 +263,10 @@ export function SettingsView({ data, onSaved }: Props) {
               onChange={(event) => patchFilter(filter.id, { label: event.target.value })}
             />
             <input
-              value={keysText[filter.id] ?? filter.projectKeys.join(", ")}
-              placeholder="Project keys, e.g. SUP, OPS"
-              onChange={(event) => {
-                setKeysText((current) => ({ ...current, [filter.id]: event.target.value }));
-                patchFilter(filter.id, {
-                  projectKeys: [...new Set(event.target.value.split(/[\s,;]+/).map((key) => key.trim().toUpperCase()).filter(Boolean))]
-                });
-              }}
+              value={filter.jql}
+              placeholder="JQL, e.g. project in (SUP, OPS) AND labels = support"
+              aria-label={`JQL for ${filter.label || "filter"}`}
+              onChange={(event) => patchFilter(filter.id, { jql: event.target.value })}
             />
             <button
               className="icon danger"

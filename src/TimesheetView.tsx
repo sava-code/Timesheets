@@ -8,6 +8,8 @@ import {
   cellSeconds,
   dayTotals,
   filterRows,
+  keysBySource,
+  matchedRowIds,
   MIN_WORKLOG_SECONDS,
   planCellEdit,
   rowId,
@@ -49,6 +51,9 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
   const [result, setResult] = useState<MonthResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [filterId, setFilterId] = useState("all");
+  // Rows matched by the selected JQL filter. `key` says which filter, JQL, issue list and load it belongs to.
+  const [filterMatch, setFilterMatch] = useState<{ key: string; ids: Set<string> } | null>(null);
+  const [loadCount, setLoadCount] = useState(0);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Cell | null>(null);
   const [editing, setEditing] = useState<(Cell & { value: string; original: string }) | null>(null);
@@ -80,6 +85,7 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
         const next = await api().fetchMonth(target);
         if (id !== requestId.current) return;
         setResult(next);
+        setLoadCount((count) => count + 1);
         for (const error of next.errors) {
           addLog("error", `${error.sourceName || error.sourceId}: ${error.message}`);
         }
@@ -107,7 +113,44 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
 
   const allRows = useMemo(() => buildRows(result, data.pinnedIssues), [result, data.pinnedIssues]);
   const filter = settings.filters.find((item) => item.id === filterId) || null;
-  const rows = useMemo(() => filterRows(allRows, filter, search), [allRows, filter, search]);
+  const rowIdsSignature = allRows.map((row) => row.id).join(",");
+  const matchKey = filter ? `${filter.id}|${filter.jql}|${loadCount}|${rowIdsSignature}` : "";
+  const filterReady = Boolean(filter && filterMatch?.key === matchKey);
+  const filterLoading = Boolean(filter) && allRows.length > 0 && !filterReady;
+  const rows = useMemo(
+    () => filterRows(allRows, filterReady && filterMatch ? filterMatch.ids : null, search),
+    [allRows, filterReady, filterMatch, search]
+  );
+
+  useEffect(() => {
+    if (!filter || !matchKey || !allRows.length) return;
+    let cancelled = false;
+    api()
+      .matchFilter(filter.jql, keysBySource(allRows))
+      .then((result) => {
+        if (cancelled) return;
+        if (result.errors.length) {
+          for (const error of result.errors) addLog("error", `Filter "${filter.label}" · ${error.sourceName || error.sourceId}: ${error.message}`);
+          setFilterId("all");
+          return;
+        }
+        setFilterMatch({ key: matchKey, ids: matchedRowIds(result.matches) });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        addLog("error", `Filter "${filter.label}": ${errorText(error)}`);
+        setFilterId("all");
+      });
+    return () => {
+      cancelled = true;
+    };
+    // matchKey captures every input that changes the answer.
+  }, [matchKey]);
+
+  // Filters were removed or renamed in Settings.
+  useEffect(() => {
+    if (filterId !== "all" && !filter) setFilterId("all");
+  }, [filterId, filter]);
   const days = useMemo(() => visibleDays(month, allRows, settings.showWeekends), [month, allRows, settings.showWeekends]);
   const totals = useMemo(() => dayTotals(rows, days), [rows, days]);
   const filteredTotal = rows.reduce((sum, row) => sum + row.total, 0);
@@ -358,7 +401,8 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
   };
 
   const totalClass = (dayKey: string, isWeekend: boolean, seconds: number) => {
-    if (isWeekend || dayKey > today) return "";
+    // The norm applies to the whole day, not to a filtered subset of issues.
+    if (filter || search.trim() || isWeekend || dayKey > today) return "";
     if (seconds >= normSeconds) return "met";
     return seconds > 0 ? "under" : "empty";
   };
@@ -414,16 +458,17 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
 
       <section className="filters">
         {settings.filters.length > 0 && (
-        <div className="chips" role="radiogroup" aria-label="Project filter">
-          {[{ id: "all", label: "All", projectKeys: [] as string[] }, ...settings.filters].map((item) => (
+        <div className="chips" role="radiogroup" aria-label="Filter">
+          {[{ id: "all", label: "All", jql: "" }, ...settings.filters].map((item) => (
             <button
               key={item.id}
               role="radio"
               aria-checked={filterId === item.id}
               className={filterId === item.id ? "chip active" : "chip"}
-              title={item.projectKeys.join(", ")}
+              title={item.jql || "All issues"}
               onClick={() => setFilterId(item.id)}
             >
+              {filterLoading && filterId === item.id && <LoaderCircle size={13} className="spin" />}
               {item.label}
             </button>
           ))}

@@ -11,7 +11,7 @@ Jira is the only source of truth. Each cell shows your own logged time on one is
 - **Flexible time input.** Accepts `1.5`, `1,5`, `1h 30m`, `90m`, `1.5h` and `1:30`. An empty value or `0` deletes the time.
 - **Several Jira instances in one grid.** Supports Jira Server/Data Center (API v2) and Jira Cloud (API v3), with password/API token or personal access token auth.
 - **Extra issues.** Each source can have an optional JQL (for example `filter = worklogs`) to list issues before you have logged time on them. You can also add any issue by key; it stays in the list until you remove it.
-- **Project filters.** Quick filter chips, each showing a group of project keys. There is also a text search.
+- **JQL filters.** Quick filter chips, each defined by a label and a JQL (e.g. `project in (SUP, OPS)`, `labels = support`, `component = Billing`). Selecting one shows the timesheet issues that match it in Jira. There is also a text search.
 - **Daily norm.** The daily totals row is green when a past working day reaches the norm, amber when it is short and red when it is empty. The header shows hours logged, the norm to date and the month norm.
 - **Light or dark theme**, or follow the system setting (Settings → Timesheet → Theme). Decimal hours are shown with one decimal; the cell editor shows the exact value.
 - **Activity log** with every change sent to Jira and any error.
@@ -35,7 +35,7 @@ The app asks for confirmation before deleting more than one worklog, or any work
 - No `var.json` or keyring command. Everything is set up in **Settings** inside the app.
 - Any number of Jira instances. A second instance is no longer required.
 - Any month, not only the current one.
-- Filter groups can have any number of project keys. The hardcoded `POWJ` exclusion is gone; use a filter or the extra JQL instead.
+- Filters are JQL queries instead of project-key lists. The hardcoded `POWJ` exclusion is gone; use a filter or the extra JQL instead.
 - Clearing or reducing a cell works correctly. The Python version tried to set the worklog to 0, which Jira rejects.
 - The "worklogs" filter is optional and configurable per source. ScriptRunner is not needed.
 

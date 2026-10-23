@@ -13,14 +13,17 @@ describe("storage-core", () => {
       settings: {
         worklogStartTime: "9:5",
         dailyNormHours: 99,
-        filters: [{ label: "SME", projectKeys: "arch, ba ba" }],
+        filters: [{ label: "SME", projectKeys: "arch, ba ba" }, { label: "Mine", jql: " assignee = currentUser() " }],
         jiraConnections: [{ id: "x", baseUrl: "https://jira.example.com///", apiVersion: "v3", authType: "weird" }]
       },
       pinnedIssues: [{ sourceId: "x", key: "sup-1" }, { sourceId: "x", key: "SUP-1" }, { key: "NOPE-1" }]
     });
     expect(data.settings.worklogStartTime).toBe("09:00");
     expect(data.settings.dailyNormHours).toBe(8);
-    expect(data.settings.filters[0].projectKeys).toEqual(["ARCH", "BA"]);
+    // Old project-key filters become JQL.
+    expect(data.settings.filters[0]).toMatchObject({ label: "SME", jql: "project in (ARCH, BA)" });
+    expect(data.settings.filters[0]).not.toHaveProperty("projectKeys");
+    expect(data.settings.filters[1].jql).toBe("assignee = currentUser()");
     expect(data.settings.jiraConnections[0]).toMatchObject({
       id: "x",
       baseUrl: "https://jira.example.com",
