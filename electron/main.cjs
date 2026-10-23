@@ -12,7 +12,7 @@ function createWindow() {
     height: 860,
     minWidth: 900,
     minHeight: 560,
-    title: "Jira Timesheets",
+    title: "Timesheets",
     backgroundColor: "#f4f5f7",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),

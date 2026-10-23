@@ -100,17 +100,17 @@ describe("Timesheet grid", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("switches theme from Settings and keeps the saved one", async () => {
+  it("starts with the original classic look and switches theme from Settings", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("INT-15");
-    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.dataset.theme).toBe("classic");
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await user.selectOptions(await screen.findByLabelText("Theme"), "dark");
     expect(document.documentElement.dataset.theme).toBe("dark");
     // Leaving without saving restores the saved theme...
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
-    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.dataset.theme).toBe("classic");
     // ...and saving keeps the new one.
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await user.selectOptions(await screen.findByLabelText("Theme"), "dark");

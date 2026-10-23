@@ -1,6 +1,7 @@
 {
-  "name": "jira-timesheets-desktop",
-  "version": "0.1.6",
+  "name": "timesheets",
+  "productName": "Timesheets",
+  "version": "0.2.0",
   "private": true,
   "description": "Desktop app for viewing and editing your monthly Jira worklogs in a spreadsheet-like grid.",
   "author": "mixaxa85",
@@ -48,7 +49,7 @@
   },
   "build": {
     "appId": "dev.mixaxa85.jiratimesheets",
-    "productName": "Jira Timesheets",
+    "productName": "Timesheets",
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -81,16 +82,16 @@
           ]
         }
       ],
-      "artifactName": "JiraTimesheets-${version}-mac-${arch}.${ext}"
+      "artifactName": "Timesheets-${version}-mac-${arch}.${ext}"
     },
     "portable": {
-      "artifactName": "JiraTimesheets-${version}-portable.${ext}"
+      "artifactName": "Timesheets-${version}-portable.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "JiraTimesheets-${version}-setup.${ext}"
+      "artifactName": "Timesheets-${version}-setup.${ext}"
     }
   }
 }

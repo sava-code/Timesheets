@@ -305,6 +305,7 @@ export function SettingsView({ data, onSaved }: Props) {
           <label>
             Theme
             <select value={draft.theme} onChange={(event) => setDraft({ ...draft, theme: event.target.value as Theme })}>
+              <option value="classic">Classic (original)</option>
               <option value="system">Same as system</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
@@ -332,7 +333,7 @@ export function SettingsView({ data, onSaved }: Props) {
             >
               {TABLE_FONT_SIZES.map((size) => (
                 <option key={size} value={size}>
-                  {size}px{size === 14 ? " (default)" : ""}
+                  {size}px{size === 12 ? " (original)" : ""}
                 </option>
               ))}
             </select>

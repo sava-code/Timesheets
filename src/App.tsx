@@ -14,7 +14,7 @@ export default function App() {
   const [view, setView] = useState<View>("timesheet");
 
   // The saved theme; Settings previews unsaved choices itself and restores this on leave.
-  const savedTheme = data?.settings.theme ?? "system";
+  const savedTheme = data?.settings.theme ?? "classic";
   useEffect(() => applyTheme(savedTheme), [savedTheme, view]);
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function App() {
       <header className="topBar">
         <div className="brand">
           <span className="brandMark">TS</span>
-          <h1>Jira Timesheets</h1>
+          <h1>Timesheets</h1>
         </div>
         <nav className="tabs">
           <button className={view === "timesheet" ? "active" : ""} onClick={() => setView("timesheet")}>

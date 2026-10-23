@@ -15,7 +15,7 @@ Jira is the only source of truth. Each cell shows your own logged time on one is
 - **Daily norm.** The daily totals row is green when a past working day reaches the norm, amber when it is short and red when it is empty. The header shows hours logged, the norm to date and the month norm.
 - **Sorted by time.** Issues with the most logged time in the month come first. The order is set when the month loads or refreshes, so rows don't jump while you type.
 - **Table font and size** are adjustable in Settings; the whole table scales with the size.
-- **Light or dark theme**, or follow the system setting (Settings → Timesheet → Theme). Decimal hours are shown with one decimal; the cell editor shows the exact value.
+- **Themes.** The default *Classic* theme and font (Segoe UI/Arial, 12px) reproduce the original Python app. Light, dark and "same as system" are also available (Settings → Timesheet). Decimal hours are shown with one decimal; the cell editor shows the exact value.
 - **Activity log** with every change sent to Jira and any error.
 - **Credentials** are encrypted with the OS keychain (Electron `safeStorage`). The app refuses to store them as plain text.
 
@@ -68,8 +68,8 @@ npm test           # unit + UI tests (Vitest)
 ## Build
 
 ```bash
-npm run dist           # Windows installer  → release/JiraTimesheets-<version>-setup.exe
-npm run dist:portable  # Windows portable   → release/JiraTimesheets-<version>-portable.exe
+npm run dist           # Windows installer  → release/Timesheets-<version>-setup.exe
+npm run dist:portable  # Windows portable   → release/Timesheets-<version>-portable.exe
 npm run dist:mac       # macOS dmg + zip (run on a Mac)
 ```
 
@@ -81,7 +81,7 @@ Builds are not signed with a paid certificate, so expect a warning on first laun
 - **macOS**: the app is ad-hoc signed, but it is not notarized. On first launch macOS says it cannot verify the app. Go to **System Settings → Privacy & Security** and click **Open Anyway**. Alternatively, remove the download quarantine in Terminal:
 
   ```bash
-  xattr -cr "/Applications/Jira Timesheets.app"
+  xattr -cr "/Applications/Timesheets.app"
   ```
 
 ## Project layout

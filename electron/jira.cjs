@@ -10,10 +10,16 @@ async function jiraRequest(connection, path, options = {}) {
     throw new Error(`Base URL is not configured for "${connection.name}".`);
   }
 
+  // `token` is only set on an unsaved draft passed to "Test"; stored sources use the encrypted secret.
+  const token = connection.token || decryptToken(connection);
+  if (!token && connection.tokenCipher) {
+    throw new Error(
+      `The saved password for "${connection.name}" can't be read on this computer (for example after the app was renamed). Enter it again in Settings.`
+    );
+  }
   const headers = {
     Accept: "application/json",
-    // `token` is only set on an unsaved draft passed to "Test"; stored sources use the encrypted secret.
-    Authorization: core.buildAuthHeader(connection, connection.token || decryptToken(connection)),
+    Authorization: core.buildAuthHeader(connection, token),
     // Jira Server rejects some write calls without this header (XSRF check).
     "X-Atlassian-Token": "no-check",
     ...(options.headers || {})

@@ -33,6 +33,16 @@ describe("storage-core", () => {
     expect(data.pinnedIssues).toEqual([{ sourceId: "x", key: "SUP-1" }]);
   });
 
+  it("defaults to the original app's look and moves version-1 files to it once", () => {
+    expect(core.defaultData().settings).toMatchObject({ theme: "classic", tableFont: "segoe", tableFontSize: 12 });
+    const old = core.mergeDefaults({ version: 1, settings: { theme: "system", tableFont: "system", tableFontSize: 14 } });
+    expect(old.settings).toMatchObject({ theme: "classic", tableFont: "segoe", tableFontSize: 12 });
+    expect(old.version).toBe(2);
+    // From version 2 on, the user's choice is kept.
+    const chosen = core.mergeDefaults({ version: 2, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16 } });
+    expect(chosen.settings).toMatchObject({ theme: "dark", tableFont: "mono", tableFontSize: 16 });
+  });
+
   it("encrypts new secrets, keeps old ones and never exposes them", () => {
     const existing = core.mergeDefaults({ settings: { jiraConnections: [{ id: "a" }, { id: "b" }] } });
     existing.settings.jiraConnections[1].tokenCipher = "old";

@@ -1,6 +1,9 @@
 // Pure settings logic (no Electron imports) so it can be unit-tested.
 
-const DATA_VERSION = 1;
+const DATA_VERSION = 2;
+
+// Appearance of the original Python/Dash app, used as the default.
+const ORIGINAL_APPEARANCE = { theme: "classic", tableFont: "segoe", tableFontSize: 12 };
 
 function makeId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -27,9 +30,7 @@ function defaultData() {
       dailyNormHours: 8,
       showWeekends: false,
       displayFormat: "decimal",
-      theme: "system",
-      tableFont: "system",
-      tableFontSize: 14,
+      ...ORIGINAL_APPEARANCE,
       filters: [],
       jiraConnections: [defaultConnection(0)]
     },
@@ -99,12 +100,14 @@ function normalizePinned(pinned) {
 
 function clampFontSize(value) {
   const size = Math.round(Number(value));
-  return Number.isFinite(size) && size >= 10 && size <= 24 ? size : 14;
+  return Number.isFinite(size) && size >= 10 && size <= 24 ? size : 12;
 }
 
 function mergeDefaults(data) {
   const defaults = defaultData();
   const settings = { ...defaults.settings, ...(data?.settings || {}) };
+  // Version 1 had a different default look; switch those settings files to the original one once.
+  if (data?.version === 1) Object.assign(settings, ORIGINAL_APPEARANCE);
   const norm = Number(settings.dailyNormHours);
   return {
     version: DATA_VERSION,
@@ -113,8 +116,8 @@ function mergeDefaults(data) {
       dailyNormHours: Number.isFinite(norm) && norm > 0 && norm <= 24 ? norm : 8,
       showWeekends: Boolean(settings.showWeekends),
       displayFormat: settings.displayFormat === "jira" ? "jira" : "decimal",
-      theme: ["light", "dark"].includes(settings.theme) ? settings.theme : "system",
-      tableFont: /^[a-z0-9-]{1,32}$/.test(String(settings.tableFont)) ? String(settings.tableFont) : "system",
+      theme: ["classic", "light", "dark", "system"].includes(settings.theme) ? settings.theme : "classic",
+      tableFont: /^[a-z0-9-]{1,32}$/.test(String(settings.tableFont)) ? String(settings.tableFont) : "segoe",
       tableFontSize: clampFontSize(settings.tableFontSize),
       filters: Array.isArray(settings.filters) ? settings.filters.map(normalizeFilter) : [],
       jiraConnections:

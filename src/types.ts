@@ -1,7 +1,8 @@
 export type AuthType = "basic" | "bearer";
 export type ApiVersion = "2" | "3";
 export type DisplayFormat = "decimal" | "jira";
-export type Theme = "system" | "light" | "dark";
+/** "classic" is the look of the original Python app. */
+export type Theme = "classic" | "system" | "light" | "dark";
 
 export interface JiraConnection {
   id: string;

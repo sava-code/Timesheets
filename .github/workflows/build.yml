@@ -18,12 +18,12 @@ jobs:
           - os: windows-latest
             script: dist
             files: |
-              release/JiraTimesheets-*-setup.exe
+              release/Timesheets-*-setup.exe
           - os: macos-14
             script: dist:mac
             files: |
-              release/JiraTimesheets-*-mac-universal.dmg
-              release/JiraTimesheets-*-mac-universal.zip
+              release/Timesheets-*-mac-universal.dmg
+              release/Timesheets-*-mac-universal.zip
     runs-on: ${{ matrix.os }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -45,7 +45,7 @@ jobs:
       - name: Upload installer
         uses: actions/upload-artifact@v6
         with:
-          name: JiraTimesheets-${{ matrix.os }}
+          name: Timesheets-${{ matrix.os }}
           path: ${{ matrix.files }}
           if-no-files-found: error
 
