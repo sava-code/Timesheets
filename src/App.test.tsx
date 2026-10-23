@@ -61,6 +61,30 @@ describe("Timesheet grid", () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps a worklog at 1 minute when Jira does not allow deleting it", async () => {
+    window.timesheets = createDevApi({ canDeleteWorklogs: false });
+    const user = userEvent.setup();
+    const update = vi.spyOn(window.timesheets, "updateWorklog");
+    render(<App />);
+    await screen.findByText("INT-15");
+    await user.type(screen.getByLabelText("Issue key"), "NEW-2");
+    await user.click(screen.getByRole("button", { name: /add/i }));
+    await screen.findByText("NEW-2");
+
+    const day = workingDayKey();
+    await user.click(cell("main:NEW-2", day));
+    await user.keyboard("2{Enter}");
+    await waitFor(() => expect(cell("main:NEW-2", day)).toHaveTextContent("2"));
+
+    await user.click(cell("main:NEW-2", day));
+    await user.keyboard("{Delete}");
+    await waitFor(() => expect(cell("main:NEW-2", day)).toHaveTextContent("0.02"));
+    expect(update).toHaveBeenCalledWith("main", expect.objectContaining({ issueKey: "NEW-2", seconds: 60 }));
+    await user.click(screen.getByRole("button", { name: /activity/i }));
+    expect(await screen.findByText(/kept at 1m/)).toBeInTheDocument();
+    expect(screen.queryByText(/Delete Own Worklogs/)).not.toBeInTheDocument();
+  });
+
   it("rejects invalid input without calling Jira", async () => {
     const user = userEvent.setup();
     const create = vi.spyOn(window.timesheets, "createWorklog");

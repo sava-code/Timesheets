@@ -56,7 +56,8 @@ function seededData(month: string): Map<string, Worklog[]> {
   return bySource;
 }
 
-export function createDevApi(): TimesheetsApi {
+export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): TimesheetsApi {
+  const canDelete = options.canDeleteWorklogs !== false;
   let data: AppData = {
     version: 1,
     settings: {
@@ -159,6 +160,11 @@ export function createDevApi(): TimesheetsApi {
     },
     deleteWorklog: async (sourceId, payload) => {
       await delay();
+      if (!canDelete) {
+        throw new Error(
+          'Jira does not let your account delete worklogs in this project (missing "Delete Own Worklogs" permission). Lower the time to at least 1m instead, or ask your Jira admin.'
+        );
+      }
       const { list, index } = find(sourceId, payload.worklogId);
       list.splice(index, 1);
       return { ok: true };

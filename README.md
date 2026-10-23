@@ -25,7 +25,7 @@ Jira is the only source of truth. Each cell shows your own logged time on one is
 | value goes down | worklogs are shortened, never deleted, as long as each can keep at least 1 minute (Jira's minimum) |
 | cleared | all of your worklogs on that cell are deleted |
 
-Lowering time avoids deletes because many Jira setups allow people to edit their own worklogs but not delete them. If your account cannot delete worklogs, clearing a cell fails with a message saying so; set it to `1m` instead or delete the worklog in Jira.
+Lowering time avoids deletes because many Jira setups allow people to edit their own worklogs but not delete them. If your account cannot delete worklogs, clearing a cell keeps each worklog at 1 minute (the closest value Jira allows) and the Activity log says so.
 
 The app asks for confirmation before deleting more than one worklog, or any worklog that has a comment. Comments and start times of existing worklogs are kept.
 

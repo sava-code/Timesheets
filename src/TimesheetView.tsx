@@ -8,6 +8,7 @@ import {
   cellSeconds,
   dayTotals,
   filterRows,
+  MIN_WORKLOG_SECONDS,
   planCellEdit,
   rowId,
   updateSourceWorklogs,
@@ -183,6 +184,7 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
     const id = cellId(cell);
     const { sourceId, key } = row.issue;
     setPending((set) => new Set(set).add(id));
+    let keptMinimum = 0;
     try {
       for (const op of ops) {
         if (op.kind === "create") {
@@ -204,15 +206,40 @@ export function TimesheetView({ data, onDataChange, onOpenSettings }: Props) {
             )
           );
         } else {
-          await api().deleteWorklog(sourceId, { issueKey: key, worklogId: op.worklog.id });
-          setResult((current) =>
-            current && updateSourceWorklogs(current, sourceId, (list) => list.filter((item) => item.id !== op.worklog.id))
-          );
+          try {
+            await api().deleteWorklog(sourceId, { issueKey: key, worklogId: op.worklog.id });
+            setResult((current) =>
+              current && updateSourceWorklogs(current, sourceId, (list) => list.filter((item) => item.id !== op.worklog.id))
+            );
+          } catch (error) {
+            // Jira refused the delete (no "Delete Own Worklogs" permission): keep the
+            // worklog at Jira's minimum of 1 minute, the closest allowed value.
+            if (!/Delete Own Worklogs/.test(errorText(error))) throw error;
+            keptMinimum += MIN_WORKLOG_SECONDS;
+            if (op.worklog.seconds > MIN_WORKLOG_SECONDS) {
+              await api().updateWorklog(sourceId, {
+                issueKey: key,
+                worklogId: op.worklog.id,
+                seconds: MIN_WORKLOG_SECONDS,
+                started: op.worklog.started
+              });
+              setResult((current) =>
+                current &&
+                updateSourceWorklogs(current, sourceId, (list) =>
+                  list.map((item) => (item.id === op.worklog.id ? { ...item, seconds: MIN_WORKLOG_SECONDS } : item))
+                )
+              );
+            }
+          }
         }
       }
+      const finalSeconds = parsed.seconds + keptMinimum;
       addLog(
         "ok",
-        `${key} · ${shortDate(cell.day)}: ${formatDuration(before, format) || "0"} → ${formatDuration(parsed.seconds, format) || "0"}`
+        `${key} · ${shortDate(cell.day)}: ${formatDuration(before, format) || "0"} → ${formatDuration(finalSeconds, format) || "0"}` +
+          (keptMinimum
+            ? ` (Jira doesn't allow you to delete worklogs, so ${keptMinimum / MIN_WORKLOG_SECONDS} worklog(s) kept at 1m)`
+            : "")
       );
     } catch (error) {
       addLog("error", `${key} · ${shortDate(cell.day)}: ${errorText(error)}`);
