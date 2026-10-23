@@ -33,21 +33,24 @@ describe("storage-core", () => {
     expect(data.pinnedIssues).toEqual([{ sourceId: "x", key: "SUP-1" }]);
   });
 
-  it("defaults to the original app's look and moves version-1 files to it once", () => {
-    expect(core.defaultData().settings).toMatchObject({ theme: "classic", tableFont: "segoe", tableFontSize: 12 });
-    const old = core.mergeDefaults({ version: 1, settings: { theme: "system", tableFont: "system", tableFontSize: 14 } });
-    expect(old.settings).toMatchObject({ theme: "classic", tableFont: "segoe", tableFontSize: 12 });
-    expect(old.version).toBe(2);
-    // From version 2 on, the user's choice is kept.
-    const chosen = core.mergeDefaults({ version: 2, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16 } });
-    expect(chosen.settings).toMatchObject({ theme: "dark", tableFont: "mono", tableFontSize: 16 });
+  const DEFAULT_LOOK = { theme: "classic", tableFont: "system", tableFontSize: 12, tableBold: false, backgroundColor: "#ffffff" };
+
+  it("defaults to the current look and moves files from older versions to it once", () => {
+    expect(core.defaultData().settings).toMatchObject(DEFAULT_LOOK);
+    for (const version of [1, 2]) {
+      const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, tableBold: true, backgroundColor: "" } });
+      expect(old.settings).toMatchObject(DEFAULT_LOOK);
+      expect(old.version).toBe(3);
+    }
+    // From version 3 on, the user's choice is kept.
+    const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, tableBold: true, backgroundColor: "" } });
+    expect(chosen.settings).toMatchObject({ theme: "dark", tableFont: "mono", tableFontSize: 16, tableBold: true, backgroundColor: "" });
   });
 
   it("validates bold and background colour settings", () => {
-    expect(core.defaultData().settings).toMatchObject({ tableBold: true, backgroundColor: "" });
-    const good = core.mergeDefaults({ version: 2, settings: { tableBold: false, backgroundColor: "#FDF6E3" } });
-    expect(good.settings).toMatchObject({ tableBold: false, backgroundColor: "#fdf6e3" });
-    const bad = core.mergeDefaults({ version: 2, settings: { backgroundColor: "red; background: url(x)" } });
+    const good = core.mergeDefaults({ version: 3, settings: { tableBold: true, backgroundColor: "#FDF6E3" } });
+    expect(good.settings).toMatchObject({ tableBold: true, backgroundColor: "#fdf6e3" });
+    const bad = core.mergeDefaults({ version: 3, settings: { backgroundColor: "red; background: url(x)" } });
     expect(bad.settings.backgroundColor).toBe("");
   });
 

@@ -925,6 +925,12 @@ label.check.standalone {
    #e6f7ff row hover, white focused cell, default link blue.
    --------------------------------------------------------------------------- */
 
+:root[data-theme="classic"] {
+  /* App top bar and the table heading rows (the original app's #333333) */
+  --header: #333333;
+  --header-text: #ffffff;
+}
+
 [data-theme="classic"] .gridWrap {
   --border: rgb(211, 211, 211);
   --border-strong: rgb(211, 211, 211);

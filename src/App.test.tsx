@@ -159,16 +159,17 @@ describe("Timesheet grid", () => {
     expect(grid.style.getPropertyValue("--grid-font")).toMatch(/monospace/);
   });
 
-  it("applies bold text and a custom background colour, and resets to the theme default", async () => {
+  it("starts with regular text on white, applies bold and a custom background, and resets to the theme default", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("INT-15");
     expect(screen.getByRole("columnheader", { name: "Summary" })).toBeInTheDocument();
     const grid = () => document.querySelector<HTMLElement>(".gridWrap")!;
-    expect(grid().style.getPropertyValue("--grid-weight")).toBe("700");
+    expect(grid().style.getPropertyValue("--grid-weight")).toBe("400");
+    expect(document.documentElement.style.getPropertyValue("--bg")).toBe("#ffffff");
 
     await user.click(screen.getByRole("button", { name: /settings/i }));
-    await user.selectOptions(await screen.findByLabelText("Table text"), "normal");
+    await user.selectOptions(await screen.findByLabelText("Table text"), "bold");
     const picker = screen.getByLabelText("Background colour", { selector: "input" }) as HTMLInputElement;
     fireEvent.input(picker, { target: { value: "#fdf6e3" } });
     expect(document.documentElement.style.getPropertyValue("--bg")).toBe("#fdf6e3");
@@ -176,7 +177,7 @@ describe("Timesheet grid", () => {
     await screen.findByText("Settings saved.");
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
     await screen.findByText("INT-15");
-    expect(grid().style.getPropertyValue("--grid-weight")).toBe("400");
+    expect(grid().style.getPropertyValue("--grid-weight")).toBe("700");
     expect(document.documentElement.style.getPropertyValue("--bg")).toBe("#fdf6e3");
 
     await user.click(screen.getByRole("button", { name: /settings/i }));

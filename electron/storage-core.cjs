@@ -1,10 +1,16 @@
 // Pure settings logic (no Electron imports) so it can be unit-tested.
 
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
 
 // Appearance of the original Python/Dash app, used as the default.
-const ORIGINAL_APPEARANCE = { theme: "classic", tableFont: "segoe", tableFontSize: 12 };
-const DEFAULT_BACKGROUND = "";
+// Default look. Settings files from older versions are switched to it once (see mergeDefaults).
+const DEFAULT_APPEARANCE = {
+  theme: "classic",
+  tableFont: "system",
+  tableFontSize: 12,
+  tableBold: false,
+  backgroundColor: "#ffffff"
+};
 
 function makeId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -31,9 +37,7 @@ function defaultData() {
       dailyNormHours: 8,
       showWeekends: false,
       displayFormat: "decimal",
-      ...ORIGINAL_APPEARANCE,
-      tableBold: true,
-      backgroundColor: DEFAULT_BACKGROUND,
+      ...DEFAULT_APPEARANCE,
       filters: [],
       jiraConnections: [defaultConnection(0)]
     },
@@ -109,8 +113,8 @@ function clampFontSize(value) {
 function mergeDefaults(data) {
   const defaults = defaultData();
   const settings = { ...defaults.settings, ...(data?.settings || {}) };
-  // Version 1 had a different default look; switch those settings files to the original one once.
-  if (data?.version === 1) Object.assign(settings, ORIGINAL_APPEARANCE);
+  // Older versions had a different default look; switch their settings files to the current one once.
+  if (data && Number(data.version) < DATA_VERSION) Object.assign(settings, DEFAULT_APPEARANCE);
   const norm = Number(settings.dailyNormHours);
   return {
     version: DATA_VERSION,
@@ -120,9 +124,9 @@ function mergeDefaults(data) {
       showWeekends: Boolean(settings.showWeekends),
       displayFormat: settings.displayFormat === "jira" ? "jira" : "decimal",
       theme: ["classic", "light", "dark", "system"].includes(settings.theme) ? settings.theme : "classic",
-      tableFont: /^[a-z0-9-]{1,32}$/.test(String(settings.tableFont)) ? String(settings.tableFont) : "segoe",
+      tableFont: /^[a-z0-9-]{1,32}$/.test(String(settings.tableFont)) ? String(settings.tableFont) : "system",
       tableFontSize: clampFontSize(settings.tableFontSize),
-      tableBold: settings.tableBold !== false,
+      tableBold: settings.tableBold === true,
       backgroundColor: /^#[0-9a-f]{6}$/i.test(String(settings.backgroundColor)) ? String(settings.backgroundColor).toLowerCase() : "",
       filters: Array.isArray(settings.filters) ? settings.filters.map(normalizeFilter) : [],
       jiraConnections:
