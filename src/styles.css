@@ -1412,3 +1412,66 @@ label.check.standalone {
 .about .appInfo {
   margin: 14px 0 0;
 }
+
+/* ---------------------------------------------------------------------------
+   Indicators next to Refresh: logging quality and time left to log
+   --------------------------------------------------------------------------- */
+
+.indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.05;
+  padding: 0 14px;
+  border-left: 1px solid var(--border);
+  cursor: default;
+}
+
+.indicatorValue {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.indicatorValue small {
+  font-size: 15px;
+  font-weight: 600;
+  margin-left: 2px;
+  color: var(--muted);
+}
+
+.indicatorLabel {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+.indicator.good .indicatorValue,
+.indicator.allLogged .indicatorValue {
+  color: #188038;
+}
+
+.indicator.fair .indicatorValue {
+  color: #b86200;
+}
+
+.indicator.poor .indicatorValue,
+.indicator.toLog .indicatorValue {
+  color: #d93025;
+}
+
+:root[data-theme="dark"] .indicator.good .indicatorValue,
+:root[data-theme="dark"] .indicator.allLogged .indicatorValue {
+  color: #4cc27a;
+}
+
+:root[data-theme="dark"] .indicator.poor .indicatorValue,
+:root[data-theme="dark"] .indicator.toLog .indicatorValue {
+  color: #f06a6a;
+}
+
+.toolbar .indicator + .primary {
+  margin-left: 6px;
+}

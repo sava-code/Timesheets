@@ -413,6 +413,17 @@ describe("Timesheet grid", () => {
     expect(open).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/github.com\/sava-code\/Timesheets\/releases\/download\//));
   });
 
+  it("shows logging quality and time left to log next to Refresh", async () => {
+    render(<App />);
+    await screen.findByText("INT-15");
+    const indicators = [...document.querySelectorAll<HTMLElement>(".toolbar .indicator")];
+    expect(indicators).toHaveLength(2);
+    // Demo worklogs are mostly logged the same day, some 1-3 days later.
+    expect(indicators[0].querySelector(".indicatorValue")!.textContent).toMatch(/^\d{1,3}%$/);
+    expect(indicators[0].title).toMatch(/weighted by time/);
+    expect(indicators[1].querySelector(".indicatorLabel")!.textContent).toMatch(/Left to log|All logged|over the norm/);
+  });
+
   it("shows Forget next to the saved password", async () => {
     const user = userEvent.setup();
     render(<App />);

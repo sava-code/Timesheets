@@ -128,7 +128,9 @@ function toWorklog(issueKey, raw) {
     date: worklogDateKey(raw.started),
     started: raw.started,
     seconds: Number(raw.timeSpentSeconds) || 0,
-    comment: commentText(raw.comment)
+    comment: commentText(raw.comment),
+    // When the worklog was entered in Jira (for the logging quality indicator)
+    created: typeof raw.created === "string" ? raw.created : ""
   };
 }
 

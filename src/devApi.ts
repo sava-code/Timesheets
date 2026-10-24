@@ -88,13 +88,18 @@ function seededData(month: string): Map<string, Worklog[]> {
       const seconds = index === picks.length - 1 ? left : Math.min(left, (1 + Math.floor(random() * 6)) * 1800);
       left -= seconds;
       if (seconds > 0 && random() > 0.08) {
+        // Mostly logged the same day, sometimes 1-3 days later.
+        const lateBy = random() < 0.75 ? 0 : 1 + Math.floor(random() * 3);
+        const created = new Date(`${day.key}T17:00:00`);
+        created.setDate(created.getDate() + lateBy);
         bySource.get(sourceId)!.push({
           id: String(id++),
           issueKey: key,
           date: day.key,
           started: `${day.key}T09:00:00.000+0200`,
           seconds,
-          comment: ""
+          comment: "",
+          created: `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}-${String(created.getDate()).padStart(2, "0")}T17:00:00.000+0200`
         });
       }
     });
@@ -237,7 +242,8 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean; latestVersi
         date: payload.date,
         started: `${payload.date}T09:00:00.000+0200`,
         seconds: payload.seconds,
-        comment: ""
+        comment: "",
+        created: new Date().toISOString()
       };
       const bySource = store(payload.date.slice(0, 7));
       if (!bySource.has(sourceId)) bySource.set(sourceId, []);

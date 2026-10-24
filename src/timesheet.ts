@@ -107,6 +107,57 @@ export function filterRows(rows: Row[], matched: Set<string> | null, search: str
   });
 }
 
+/** Whole calendar days between two YYYY-MM-DD dates (b - a). */
+function daysBetween(a: string, b: string): number {
+  const [ya, ma, da] = a.split("-").map(Number);
+  const [yb, mb, db] = b.split("-").map(Number);
+  return Math.round((Date.UTC(yb, mb - 1, db) - Date.UTC(ya, ma - 1, da)) / 86_400_000);
+}
+
+export interface Quality {
+  /** 0-100; 100 = every worklog entered on its own day */
+  percent: number;
+  /** Time-weighted average delay between the worklog's day and the day it was entered, in days */
+  averageDelay: number;
+  count: number;
+}
+
+/** Points lost per day of average delay. */
+export const QUALITY_PENALTY_PER_DAY = 10;
+
+/**
+ * Logging quality: the time-weighted average number of days between a worklog's date and the day
+ * it was entered in Jira. 0 days = 100%; each day of average delay costs 10 points (min 0%).
+ * Worklogs entered in advance count as 0 days late; worklogs without a creation date are skipped.
+ */
+export function worklogQuality(worklogs: Worklog[]): Quality | null {
+  let weight = 0;
+  let weightedDelay = 0;
+  let count = 0;
+  for (const worklog of worklogs) {
+    const created = String(worklog.created || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(created) || worklog.seconds <= 0) continue;
+    const delay = Math.max(0, daysBetween(worklog.date, created));
+    weight += worklog.seconds;
+    weightedDelay += delay * worklog.seconds;
+    count += 1;
+  }
+  if (!weight) return null;
+  const averageDelay = weightedDelay / weight;
+  const percent = Math.max(0, Math.min(100, Math.round(100 - averageDelay * QUALITY_PENALTY_PER_DAY)));
+  return { percent, averageDelay, count };
+}
+
+/** A short motivating line for a quality percentage. */
+export function qualityMessage(percent: number): string {
+  if (percent >= 100) return "You are the best!";
+  if (percent >= 90) return "Excellent, almost always on time";
+  if (percent >= 75) return "Good, keep it up";
+  if (percent >= 50) return "Try to log on the same day";
+  if (percent >= 25) return "Logging is falling behind";
+  return "Catch up and log daily";
+}
+
 /** Days of `month` covered by an absence (inclusive range), with the absences covering each. */
 export function absenceDays(absences: Absence[], month: string): Map<string, Absence[]> {
   const days = new Map<string, Absence[]>();

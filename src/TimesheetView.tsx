@@ -25,6 +25,9 @@ import {
   keysBySource,
   matchedRowIds,
   MIN_WORKLOG_SECONDS,
+  QUALITY_PENALTY_PER_DAY,
+  qualityMessage,
+  worklogQuality,
   planCellEdit,
   updateSourceWorklogs,
   visibleDays,
@@ -50,6 +53,12 @@ interface LogEntry {
 
 const cellId = (cell: Cell) => `${cell.row}|${cell.day}`;
 const EDIT_START = /^[0-9.,:hm]$/i;
+
+function qualityClass(percent: number): string {
+  if (percent >= 90) return "good";
+  if (percent >= 50) return "fair";
+  return "poor";
+}
 
 /** Adds an issue to a source of the month result if it isn't there (e.g. first worklog on a JQL-search issue). */
 function withIssue(result: MonthResult, sourceId: string, issue: Issue): MonthResult {
@@ -295,6 +304,12 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   const workdays = monthDays(month).filter((day) => !day.isWeekend && !absent.has(day.key));
   const normSeconds = settings.dailyNormHours * 3600;
   const normToDate = workdays.filter((day) => day.key <= today).length * normSeconds;
+
+  // Indicators next to Refresh. Both use all of your worklogs in the month, whatever is filtered.
+  const monthWorklogs = useMemo(() => (result?.sources || []).flatMap((source) => source.worklogs), [result]);
+  const quality = useMemo(() => worklogQuality(monthWorklogs), [monthWorklogs]);
+  const loggedToDate = monthWorklogs.filter((item) => item.date <= today).reduce((sum, item) => sum + item.seconds, 0);
+  const toLog = normToDate - loggedToDate;
 
   const rowById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
 
@@ -612,6 +627,29 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
           <span>
             Month norm <strong>{formatDuration(workdays.length * normSeconds, format)}</strong>
           </span>
+        </div>
+
+        <div
+          className={["indicator", quality ? qualityClass(quality.percent) : ""].join(" ")}
+          title={
+            quality
+              ? `Logging quality: worklogs are entered on average ${quality.averageDelay.toFixed(1)} day(s) after their date ` +
+                `(weighted by time, ${quality.count} worklogs). Same day = 100%, each day later costs ${QUALITY_PENALTY_PER_DAY}%.`
+              : "Logging quality: no worklogs this month yet"
+          }
+        >
+          <span className="indicatorValue">{quality ? `${quality.percent}%` : "—"}</span>
+          <span className="indicatorLabel">{quality ? qualityMessage(quality.percent) : "Logging quality"}</span>
+        </div>
+        <div
+          className={["indicator", toLog > 0 ? "toLog" : "allLogged"].join(" ")}
+          title={`Norm to date ${formatDuration(normToDate, "jira") || "0h"} minus logged up to today ${formatDuration(loggedToDate, "jira") || "0h"}`}
+        >
+          <span className="indicatorValue">
+            {toLog > 0 ? formatDuration(toLog, format) : toLog < 0 ? `+${formatDuration(-toLog, format)}` : "0"}
+            {format === "decimal" && toLog !== 0 ? <small>h</small> : null}
+          </span>
+          <span className="indicatorLabel">{toLog > 0 ? "Left to log" : toLog < 0 ? "Logged over the norm" : "All logged"}</span>
         </div>
 
         <button className="primary" onClick={refresh} disabled={loading}>

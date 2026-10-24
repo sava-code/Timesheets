@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { MonthResult, Worklog } from "./types";
 import {
+  qualityMessage,
+  worklogQuality,
   absenceDays,
   baseSources,
   buildRows,
@@ -110,6 +112,44 @@ describe("buildRows", () => {
     expect(days.some((day) => day.key === "2026-10-03")).toBe(false); // empty Saturday
     expect(days).toHaveLength(23);
     expect(dayTotals(rows, days)["2026-10-05"]).toBe(5400);
+  });
+});
+
+describe("worklogQuality", () => {
+  const logged = (date: string, created: string, seconds = 3600) => ({ ...wl("1", date, seconds), created });
+
+  it("is 100% when every worklog is entered on its own day", () => {
+    expect(worklogQuality([logged("2026-10-05", "2026-10-05T18:00:00.000+0200"), logged("2026-10-06", "2026-10-06T09:30:00.000+0200")])).toEqual({
+      percent: 100,
+      averageDelay: 0,
+      count: 2
+    });
+  });
+
+  it("weights the delay by logged time and loses 10 points per day", () => {
+    // 6h on time, 2h entered 4 days later: (0*6 + 4*2) / 8 = 1 day -> 90%
+    const quality = worklogQuality([
+      logged("2026-10-05", "2026-10-05T18:00:00.000+0200", 6 * 3600),
+      logged("2026-10-05", "2026-10-09T10:00:00.000+0200", 2 * 3600)
+    ])!;
+    expect(quality.averageDelay).toBe(1);
+    expect(quality.percent).toBe(90);
+    expect(worklogQuality([logged("2026-10-01", "2026-10-31T10:00:00.000+0200")])!.percent).toBe(0);
+  });
+
+  it("counts worklogs entered in advance as on time and skips unknown creation dates", () => {
+    expect(worklogQuality([logged("2026-10-09", "2026-10-05T10:00:00.000+0200")])!.percent).toBe(100);
+    expect(worklogQuality([{ ...wl("1", "2026-10-05", 3600), created: "" }])).toBeNull();
+    expect(worklogQuality([])).toBeNull();
+  });
+
+  it("has a motivating line for every level", () => {
+    expect(qualityMessage(100)).toBe("You are the best!");
+    expect(qualityMessage(95)).toMatch(/Excellent/);
+    expect(qualityMessage(80)).toMatch(/Good/);
+    expect(qualityMessage(60)).toMatch(/same day/);
+    expect(qualityMessage(30)).toMatch(/behind/);
+    expect(qualityMessage(0)).toMatch(/Catch up/);
   });
 });
 

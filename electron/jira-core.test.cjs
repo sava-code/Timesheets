@@ -76,6 +76,7 @@ describe("jira-core", () => {
       comment: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Call" }] }] }
     });
     expect(worklog).toEqual({
+      created: "",
       id: "42",
       issueKey: "SUP-1",
       date: "2026-10-05",

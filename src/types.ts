@@ -90,6 +90,8 @@ export interface Worklog {
   started: string;
   seconds: number;
   comment: string;
+  /** When the worklog was entered in Jira (ISO timestamp); "" if unknown */
+  created?: string;
 }
 
 export interface SourceMonth {
