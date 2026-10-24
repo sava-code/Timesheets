@@ -185,15 +185,13 @@ button:focus-visible {
 }
 
 .brandMark {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
+  width: 32px;
+  height: 32px;
+  display: block;
+  /* The artwork has a margin around the tile, like macOS icons; trim it in the top bar */
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1.22);
 }
 
 .tabs {

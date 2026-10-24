@@ -5,6 +5,7 @@ import type { AppData } from "./types";
 import { TimesheetView } from "./TimesheetView";
 import { SettingsView } from "./SettingsView";
 import { applyTheme } from "./theme";
+import appIcon from "./assets/icon.svg";
 
 type View = "timesheet" | "settings";
 
@@ -32,7 +33,7 @@ export default function App() {
     <div className="appShell">
       <header className="topBar">
         <div className="brand">
-          <span className="brandMark">TS</span>
+          <img className="brandMark" src={appIcon} alt="" />
           <h1>Timesheets</h1>
         </div>
         <nav className="tabs">

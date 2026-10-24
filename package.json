@@ -58,12 +58,14 @@
       "package.json"
     ],
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "win": {
       "target": [
         "portable"
-      ]
+      ],
+      "icon": "build/icon.ico"
     },
     "mac": {
       "identity": "-",
@@ -83,7 +85,8 @@
           ]
         }
       ],
-      "artifactName": "Timesheets-${version}-mac-${arch}.${ext}"
+      "artifactName": "Timesheets-${version}-mac-${arch}.${ext}",
+      "icon": "build/icon.png"
     },
     "portable": {
       "artifactName": "Timesheets-${version}-portable.${ext}"
