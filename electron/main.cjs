@@ -3,6 +3,7 @@ const path = require("node:path");
 const { dataFilePath, normalizeIncomingData, readRawData, sanitizeData, writeRawData } = require("./storage.cjs");
 const jira = require("./jira.cjs");
 const packageMetadata = require("../package.json");
+const updates = require("./update-core.cjs");
 
 let mainWindow;
 
@@ -173,8 +174,19 @@ ipcMain.handle("app:openExternal", async (_event, url) => {
   if (/^https?:\/\//i.test(String(url))) await shell.openExternal(String(url));
 });
 
+// Asks GitHub Releases for a newer version; never downloads or installs anything by itself.
+ipcMain.handle("update:check", async () => {
+  try {
+    return await updates.checkGitHubLatestRelease(app.getVersion(), process.platform);
+  } catch (error) {
+    return { stage: "error", currentVersion: app.getVersion(), releaseUrl: updates.GITHUB_RELEASES_URL, message: error.message };
+  }
+});
+
 ipcMain.handle("app:getInfo", async () => ({
   version: packageMetadata.version,
+  author: packageMetadata.author,
+  releasesUrl: updates.GITHUB_RELEASES_URL,
   dataFilePath: dataFilePath()
 }));
 

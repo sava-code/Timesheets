@@ -1,7 +1,26 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { CheckCircle2, GripVertical, LoaderCircle, Plus, RotateCcw, Save, Trash2, XCircle } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  Filter,
+  GripVertical,
+  Info,
+  LoaderCircle,
+  Palette,
+  Plane,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Server,
+  Trash2,
+  XCircle
+} from "lucide-react";
 import { api, errorText } from "./api";
-import type { AppData, AppInfo, FilterGroup, JiraConnection, Settings, Theme } from "./types";
+import type { AppData, AppInfo, FilterGroup, JiraConnection, Settings, Theme, UpdateStatus } from "./types";
+import appIcon from "./assets/icon.svg";
 import { applyTheme, themeBackground } from "./theme";
 import { TABLE_FONT_SIZES, TABLE_FONTS, tableFontStack } from "./fonts";
 
@@ -11,6 +30,21 @@ interface Props {
 }
 
 type TestState = { status: "running" } | { status: "ok"; text: string } | { status: "error"; text: string };
+
+type SettingsTab = "jira" | "filters" | "absences" | "timesheet" | "appearance" | "about";
+
+const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: typeof Server }> = [
+  { id: "jira", label: "Jira sources", icon: Server },
+  { id: "filters", label: "Filters", icon: Filter },
+  { id: "absences", label: "Absences", icon: Plane },
+  { id: "timesheet", label: "Timesheet", icon: CalendarDays },
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "about", label: "About & updates", icon: Info }
+];
+
+// Remembered while the app runs, so Settings reopens on the last tab.
+let lastTab: SettingsTab = "jira";
+let lastUpdate: UpdateStatus | null = null;
 
 const DEFAULT_BASE_JQL = 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"';
 
@@ -44,6 +78,25 @@ export function SettingsView({ data, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [info, setInfo] = useState<AppInfo | null>(null);
+  const [tab, setTab] = useState<SettingsTab>(lastTab);
+  const [update, setUpdate] = useState<UpdateStatus | null>(lastUpdate);
+
+  const selectTab = (next: SettingsTab) => {
+    lastTab = next;
+    setTab(next);
+  };
+
+  const checkUpdates = async () => {
+    setUpdate({ stage: "checking", currentVersion: info?.version || "", releaseUrl: "", message: "Checking GitHub Releases…" });
+    let next: UpdateStatus;
+    try {
+      next = await api().checkForUpdates();
+    } catch (error) {
+      next = { stage: "error", currentVersion: info?.version || "", releaseUrl: info?.releasesUrl || "", message: errorText(error) };
+    }
+    lastUpdate = next;
+    setUpdate(next);
+  };
 
   useEffect(() => {
     void api().getAppInfo().then(setInfo);
@@ -179,432 +232,529 @@ export function SettingsView({ data, onSaved }: Props) {
         </div>
       </div>
 
-      <section className="panel">
-        <div className="panelHead">
-          <div>
-            <h3>Jira sources</h3>
-            <p>Worklogs from every enabled source are shown together in one timesheet.</p>
-          </div>
-          <button
-            className="secondary"
-            onClick={() =>
-              setDraft((current) => ({
-                ...current,
-                jiraConnections: [...current.jiraConnections, newConnection(current.jiraConnections.length)]
-              }))
-            }
-          >
-            <Plus size={15} /> Add source
-          </button>
-        </div>
+      <div className="settingsBody">
+        <nav className="settingsTabs" role="tablist" aria-orientation="vertical" aria-label="Settings sections">
+          {SETTINGS_TABS.map((item) => (
+            <button
+              key={item.id}
+              role="tab"
+              id={`settings-tab-${item.id}`}
+              aria-selected={tab === item.id}
+              aria-controls="settings-panel"
+              className={tab === item.id ? "active" : ""}
+              onClick={() => selectTab(item.id)}
+            >
+              <item.icon size={16} />
+              {item.label}
+              {item.id === "about" && update?.stage === "available" && <span className="tabDot" aria-label="Update available" />}
+            </button>
+          ))}
+        </nav>
+        <div className="settingsPanel" role="tabpanel" id="settings-panel" aria-labelledby={`settings-tab-${tab}`}>
+          {tab === "jira" && (
+            <>
+              <section className="panel">
+                <div className="panelHead">
+                  <div>
+                    <h3>Jira sources</h3>
+                    <p>Worklogs from every enabled source are shown together in one timesheet.</p>
+                  </div>
+                  <button
+                    className="secondary"
+                    onClick={() =>
+                      setDraft((current) => ({
+                        ...current,
+                        jiraConnections: [...current.jiraConnections, newConnection(current.jiraConnections.length)]
+                      }))
+                    }
+                  >
+                    <Plus size={15} /> Add source
+                  </button>
+                </div>
 
-        {draft.jiraConnections.map((connection) => {
-          const state = tests[connection.id];
-          return (
-            <div className="sourceCard" key={connection.id}>
-              <div className="formGrid">
-                <label>
-                  Name
-                  <input value={connection.name} onChange={(event) => patchConnection(connection.id, { name: event.target.value })} />
-                </label>
-                <label className="wide">
-                  Base URL
-                  <input
-                    value={connection.baseUrl}
-                    placeholder="https://jira.company.com or https://company.atlassian.net"
-                    onChange={(event) => patchConnection(connection.id, { baseUrl: event.target.value })}
-                  />
-                </label>
-                <label>
-                  Jira type
-                  <select
-                    value={connection.apiVersion}
-                    onChange={(event) => patchConnection(connection.id, { apiVersion: event.target.value as "2" | "3" })}
+                {draft.jiraConnections.map((connection) => {
+                  const state = tests[connection.id];
+                  return (
+                    <div className="sourceCard" key={connection.id}>
+                      <div className="formGrid">
+                        <label>
+                          Name
+                          <input value={connection.name} onChange={(event) => patchConnection(connection.id, { name: event.target.value })} />
+                        </label>
+                        <label className="wide">
+                          Base URL
+                          <input
+                            value={connection.baseUrl}
+                            placeholder="https://jira.company.com or https://company.atlassian.net"
+                            onChange={(event) => patchConnection(connection.id, { baseUrl: event.target.value })}
+                          />
+                        </label>
+                        <label>
+                          Jira type
+                          <select
+                            value={connection.apiVersion}
+                            onChange={(event) => patchConnection(connection.id, { apiVersion: event.target.value as "2" | "3" })}
+                          >
+                            <option value="2">Server / Data Center</option>
+                            <option value="3">Cloud</option>
+                          </select>
+                        </label>
+                        <label>
+                          Authentication
+                          <select
+                            value={connection.authType}
+                            onChange={(event) => patchConnection(connection.id, { authType: event.target.value as "basic" | "bearer" })}
+                          >
+                            <option value="basic">Password / API token</option>
+                            <option value="bearer">Personal access token</option>
+                          </select>
+                        </label>
+                        {connection.authType === "basic" && (
+                          <label>
+                            {connection.apiVersion === "3" ? "Atlassian email" : "User name"}
+                            <input value={connection.email} onChange={(event) => patchConnection(connection.id, { email: event.target.value })} />
+                          </label>
+                        )}
+                        <div className="formField wide">
+                          <label htmlFor={`secret-${connection.id}`}>
+                            {connection.authType === "bearer" ? "Token / PAT" : connection.apiVersion === "3" ? "API token" : "Password / token"}
+                          </label>
+                          <div className="secretRow">
+                            <input
+                              id={`secret-${connection.id}`}
+                              type="password"
+                              value={connection.token || ""}
+                              placeholder={connection.tokenPresent && !connection.clearToken ? "Saved — type to replace" : "Not set"}
+                              onChange={(event) => patchConnection(connection.id, { token: event.target.value, clearToken: false })}
+                            />
+                            {connection.tokenPresent && !connection.clearToken && (
+                              <button
+                                type="button"
+                                className="ghost"
+                                title="Delete the saved password/token from this computer"
+                                onClick={() => patchConnection(connection.id, { clearToken: true, token: "" })}
+                              >
+                                Forget
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <label className="full">
+                          Extra issues JQL <span className="muted">(optional — issues to show even without time this month)</span>
+                          <input
+                            value={connection.extraJql}
+                            placeholder='e.g. filter = worklogs   or   assignee = currentUser() AND resolution = Unresolved'
+                            onChange={(event) => patchConnection(connection.id, { extraJql: event.target.value })}
+                          />
+                        </label>
+                      </div>
+                      <div className="sourceActions">
+                        <label className="check">
+                          <input
+                            type="checkbox"
+                            checked={connection.enabled}
+                            onChange={(event) => patchConnection(connection.id, { enabled: event.target.checked })}
+                          />
+                          Enabled
+                        </label>
+                        <button className="secondary" onClick={() => void test(connection)} disabled={state?.status === "running"}>
+                          {state?.status === "running" ? <LoaderCircle size={15} className="spin" /> : null} Test connection
+                        </button>
+                        {state?.status === "ok" && (
+                          <span className="okText">
+                            <CheckCircle2 size={15} /> {state.text}
+                          </span>
+                        )}
+                        {state?.status === "error" && (
+                          <span className="errorText">
+                            <XCircle size={15} /> {state.text}
+                          </span>
+                        )}
+                        <span className="spacer" />
+                        <button
+                          className="ghost danger"
+                          disabled={draft.jiraConnections.length === 1}
+                          onClick={() =>
+                            setDraft((current) => ({
+                              ...current,
+                              jiraConnections: current.jiraConnections.filter((item) => item.id !== connection.id)
+                            }))
+                          }
+                        >
+                          <Trash2 size={15} /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            </>
+          )}
+          {tab === "filters" && (
+            <>
+              <section className="panel">
+                <div className="panelHead">
+                  <div>
+                    <h3>Filters</h3>
+                    <p>
+                      Quick filters above the timesheet, each defined by a JQL such as <code>project in (SUP, OPS)</code>.
+                      By default a filter narrows the base list (issues with your worklogs this month and the sources' extra
+                      JQL). Tick <strong>Free</strong> to show exactly the issues its JQL returns instead, so you can log time
+                      on issues you haven't logged on yet.
+                    </p>
+                  </div>
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      const id = newId("filter");
+                      setDraft((current) => ({ ...current, filters: [...current.filters, { id, label: "", jql: "", free: false }] }));
+                    }}
                   >
-                    <option value="2">Server / Data Center</option>
-                    <option value="3">Cloud</option>
-                  </select>
-                </label>
-                <label>
-                  Authentication
-                  <select
-                    value={connection.authType}
-                    onChange={(event) => patchConnection(connection.id, { authType: event.target.value as "basic" | "bearer" })}
-                  >
-                    <option value="basic">Password / API token</option>
-                    <option value="bearer">Personal access token</option>
-                  </select>
-                </label>
-                {connection.authType === "basic" && (
-                  <label>
-                    {connection.apiVersion === "3" ? "Atlassian email" : "User name"}
-                    <input value={connection.email} onChange={(event) => patchConnection(connection.id, { email: event.target.value })} />
+                    <Plus size={15} /> Add filter
+                  </button>
+                </div>
+                <div className="baseJql">
+                  <label htmlFor="base-jql">
+                    Base JQL <span className="muted">— builds the base list: the issues shown under "All" and narrowed by filters</span>
                   </label>
-                )}
-                <div className="formField wide">
-                  <label htmlFor={`secret-${connection.id}`}>
-                    {connection.authType === "bearer" ? "Token / PAT" : connection.apiVersion === "3" ? "API token" : "Password / token"}
-                  </label>
-                  <div className="secretRow">
+                  <div className="baseJqlRow">
                     <input
-                      id={`secret-${connection.id}`}
-                      type="password"
-                      value={connection.token || ""}
-                      placeholder={connection.tokenPresent && !connection.clearToken ? "Saved — type to replace" : "Not set"}
-                      onChange={(event) => patchConnection(connection.id, { token: event.target.value, clearToken: false })}
+                      id="base-jql"
+                      value={draft.baseJql}
+                      spellCheck={false}
+                      onChange={(event) => setDraft({ ...draft, baseJql: event.target.value })}
                     />
-                    {connection.tokenPresent && !connection.clearToken && (
-                      <button
-                        type="button"
-                        className="ghost"
-                        title="Delete the saved password/token from this computer"
-                        onClick={() => patchConnection(connection.id, { clearToken: true, token: "" })}
-                      >
-                        Forget
+                    <button
+                      type="button"
+                      className="secondary"
+                      title="Back to the default base JQL"
+                      aria-label="Reset base JQL"
+                      disabled={draft.baseJql.trim() === DEFAULT_BASE_JQL}
+                      onClick={() => setDraft({ ...draft, baseJql: DEFAULT_BASE_JQL })}
+                    >
+                      <RotateCcw size={14} /> Reset
+                    </button>
+                  </div>
+                  <p className="hint">
+                    <code>{"{monthStart}"}</code> and <code>{"{monthEnd}"}</code> are replaced with the first and last day of the month
+                    you are viewing, so the list follows the month. Your logged time is read from the issues this JQL returns.
+                    For this month it runs: <code>{previewBaseJql(draft.baseJql)}</code>
+                  </p>
+                </div>
+
+                <div className="filterRow">
+                  <span />
+                  <span className="fixedLabel" title="The default view. It always stays first.">All</span>
+                  <input
+                    value={draft.allFilter.jql}
+                    placeholder="Optional JQL. Empty: issues with your worklogs this month"
+                    aria-label="JQL for All"
+                    onChange={(event) => setDraft({ ...draft, allFilter: { ...draft.allFilter, jql: event.target.value } })}
+                  />
+                  <label className="check freeCheck" title="Show exactly the issues this JQL returns, not only the base list">
+                    <input
+                      type="checkbox"
+                      aria-label="Free filter: All"
+                      checked={draft.allFilter.free}
+                      onChange={(event) => setDraft({ ...draft, allFilter: { ...draft.allFilter, free: event.target.checked } })}
+                    />
+                    Free
+                  </label>
+                  <span />
+                </div>
+                <div ref={filterListRef} className={dragId ? "filterList dragActive" : "filterList"}>
+                {draft.filters.map((filter, index) => (
+                  <div
+                    className={[
+                      "filterRow",
+                      dragId === filter.id ? "dragging" : "",
+                      dragId && dropAt === index ? "dropBefore" : "",
+                      dragId && dropAt === index + 1 && index === draft.filters.length - 1 ? "dropAfter" : ""
+                    ].join(" ")}
+                    key={filter.id}
+                    data-filter-row
+                  >
+                    <span
+                      className="dragHandle"
+                      role="button"
+                      tabIndex={-1}
+                      title="Drag to reorder"
+                      aria-label={`Move ${filter.label || "filter"}`}
+                      onPointerDown={(event) => startDrag(event, filter.id)}
+                    >
+                      <GripVertical size={16} />
+                    </span>
+                    <input
+                      value={filter.label}
+                      placeholder="Label, e.g. Support"
+                      onChange={(event) => patchFilter(filter.id, { label: event.target.value })}
+                    />
+                    <input
+                      value={filter.jql}
+                      placeholder="JQL, e.g. project in (SUP, OPS) AND labels = support"
+                      aria-label={`JQL for ${filter.label || "filter"}`}
+                      onChange={(event) => patchFilter(filter.id, { jql: event.target.value })}
+                    />
+                    <label className="check freeCheck" title="Show exactly the issues this JQL returns, not only the base list">
+                      <input
+                        type="checkbox"
+                        aria-label={`Free filter: ${filter.label || "filter"}`}
+                        checked={filter.free}
+                        onChange={(event) => patchFilter(filter.id, { free: event.target.checked })}
+                      />
+                      Free
+                    </label>
+                    <button
+                      className="icon danger"
+                      title="Remove filter"
+                      onClick={() => setDraft((current) => ({ ...current, filters: current.filters.filter((item) => item.id !== filter.id) }))}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+                </div>
+              </section>
+            </>
+          )}
+          {tab === "absences" && (
+            <>
+              <section className="panel">
+                <div className="panelHead">
+                  <div>
+                    <h3>Absences</h3>
+                    <p>
+                      Days off registered as Jira issues (vacation, sick leave…). Their working days are left out of the norm
+                      and shown in light grey.
+                    </p>
+                  </div>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      aria-label="Use absences"
+                      checked={draft.absences.enabled}
+                      onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, enabled: event.target.checked } })}
+                    />
+                    Use absences
+                  </label>
+                </div>
+                <div className="formGrid">
+                  <label>
+                    Jira source
+                    <select
+                      disabled={!draft.absences.enabled}
+                      value={draft.absences.sourceId}
+                      onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, sourceId: event.target.value } })}
+                    >
+                      <option value="">First enabled source</option>
+                      {draft.jiraConnections.map((connection) => (
+                        <option key={connection.id} value={connection.id}>
+                          {connection.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="wide">
+                    Absences JQL
+                    <input
+                      disabled={!draft.absences.enabled}
+                      value={draft.absences.jql}
+                      onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, jql: event.target.value } })}
+                    />
+                  </label>
+                  <span />
+                  <label>
+                    "Leave from date" field id
+                    <input
+                      disabled={!draft.absences.enabled}
+                      value={draft.absences.fromField}
+                      placeholder="customfield_10800"
+                      onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, fromField: event.target.value } })}
+                    />
+                  </label>
+                  <label>
+                    "Leave to date" field id
+                    <input
+                      disabled={!draft.absences.enabled}
+                      value={draft.absences.toField}
+                      placeholder="customfield_10801"
+                      onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, toField: event.target.value } })}
+                    />
+                  </label>
+                </div>
+              </section>
+            </>
+          )}
+          {tab === "timesheet" && (
+            <>
+              <section className="panel">
+                <h3>Timesheet</h3>
+                <div className="formGrid">
+                  <label>
+                    New worklog start time
+                    <input
+                      type="time"
+                      value={draft.worklogStartTime}
+                      onChange={(event) => setDraft({ ...draft, worklogStartTime: event.target.value || "09:00" })}
+                    />
+                  </label>
+                  <label>
+                    Daily norm, hours
+                    <input
+                      type="number"
+                      min={1}
+                      max={24}
+                      step={0.5}
+                      value={draft.dailyNormHours}
+                      onChange={(event) => setDraft({ ...draft, dailyNormHours: Number(event.target.value) || 8 })}
+                    />
+                  </label>
+                  <label>
+                    Show time as
+                    <select
+                      value={draft.displayFormat}
+                      onChange={(event) => setDraft({ ...draft, displayFormat: event.target.value as "decimal" | "jira" })}
+                    >
+                      <option value="decimal">Decimal hours (1.5)</option>
+                      <option value="jira">Jira style (1h 30m)</option>
+                    </select>
+                  </label>
+                  <label className="check standalone">
+                    <input
+                      type="checkbox"
+                      checked={draft.showWeekends}
+                      onChange={(event) => setDraft({ ...draft, showWeekends: event.target.checked })}
+                    />
+                    Always show weekends
+                  </label>
+                </div>
+              </section>
+            </>
+          )}
+          {tab === "appearance" && (
+            <>
+              <section className="panel">
+                <h3>Appearance</h3>
+                <div className="formGrid">
+                  <label>
+                    Theme
+                    <select value={draft.theme} onChange={(event) => setDraft({ ...draft, theme: event.target.value as Theme })}>
+                      <option value="classic">Classic (original)</option>
+                      <option value="system">Same as system</option>
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
+                  </label>
+                  <label>
+                    Table font
+                    <select
+                      value={draft.tableFont}
+                      style={{ fontFamily: tableFontStack(draft.tableFont) }}
+                      onChange={(event) => setDraft({ ...draft, tableFont: event.target.value })}
+                    >
+                      {TABLE_FONTS.map((font) => (
+                        <option key={font.id} value={font.id} style={{ fontFamily: font.stack }}>
+                          {font.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Table font size
+                    <select
+                      value={draft.tableFontSize}
+                      onChange={(event) => setDraft({ ...draft, tableFontSize: Number(event.target.value) })}
+                    >
+                      {TABLE_FONT_SIZES.map((size) => (
+                        <option key={size} value={size}>
+                          {size}px{size === 12 ? " (original)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Background colour
+                    <span className="colorField">
+                      <input
+                        type="color"
+                        aria-label="Background colour"
+                        value={draft.backgroundColor || themeBackground(draft.theme)}
+                        onChange={(event) => setDraft({ ...draft, backgroundColor: event.target.value })}
+                      />
+                      <span className="colorValue">{draft.backgroundColor || "Theme default"}</span>
+                      {draft.backgroundColor && (
+                        <button type="button" className="ghost" onClick={() => setDraft({ ...draft, backgroundColor: "" })}>
+                          Reset
+                        </button>
+                      )}
+                    </span>
+                  </label>
+                </div>
+              </section>
+            </>
+          )}
+          {tab === "about" && (
+            <section className="panel about">
+              <div className="aboutHead">
+                <img className="aboutIcon" src={appIcon} alt="" />
+                <div>
+                  <h3>Timesheets</h3>
+                  <p>
+                    Version {info?.version || "…"}
+                    {info?.author ? ` · by ${info.author}` : ""}
+                  </p>
+                </div>
+              </div>
+
+              <div className="updateBox">
+                <div className="updateRow">
+                  <button className="secondary" onClick={() => void checkUpdates()} disabled={update?.stage === "checking"}>
+                    {update?.stage === "checking" ? <LoaderCircle size={15} className="spin" /> : <RefreshCw size={15} />} Check for
+                    updates
+                  </button>
+                  {update && update.stage !== "checking" && (
+                    <span className={update.stage === "error" ? "errorText" : update.stage === "available" ? "updateAvailable" : "okText"}>
+                      {update.stage === "up-to-date" && <CheckCircle2 size={15} />}
+                      {update.stage === "error" && <XCircle size={15} />}
+                      {update.message}
+                    </span>
+                  )}
+                </div>
+                {update?.stage === "available" && (
+                  <div className="updateDetails">
+                    <div className="updateRow">
+                      {update.downloadUrl && (
+                        <button className="primary" onClick={() => void api().openExternal(update.downloadUrl!)}>
+                          <Download size={15} /> Download {update.downloadName}
+                        </button>
+                      )}
+                      <button className="secondary" onClick={() => void api().openExternal(update.releaseUrl)}>
+                        <ExternalLink size={15} /> Open release page
                       </button>
+                    </div>
+                    <p className="hint">
+                      Replace the app with the downloaded file; your settings and saved password are kept.
+                      {update.releaseDate ? ` Released ${update.releaseDate}.` : ""}
+                    </p>
+                    {update.releaseNotes?.trim() && (
+                      <div className="releaseNotes">
+                        <strong>What's new in {update.version}</strong>
+                        <pre>{update.releaseNotes.trim()}</pre>
+                      </div>
                     )}
                   </div>
-                </div>
-                <label className="full">
-                  Extra issues JQL <span className="muted">(optional — issues to show even without time this month)</span>
-                  <input
-                    value={connection.extraJql}
-                    placeholder='e.g. filter = worklogs   or   assignee = currentUser() AND resolution = Unresolved'
-                    onChange={(event) => patchConnection(connection.id, { extraJql: event.target.value })}
-                  />
-                </label>
-              </div>
-              <div className="sourceActions">
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={connection.enabled}
-                    onChange={(event) => patchConnection(connection.id, { enabled: event.target.checked })}
-                  />
-                  Enabled
-                </label>
-                <button className="secondary" onClick={() => void test(connection)} disabled={state?.status === "running"}>
-                  {state?.status === "running" ? <LoaderCircle size={15} className="spin" /> : null} Test connection
-                </button>
-                {state?.status === "ok" && (
-                  <span className="okText">
-                    <CheckCircle2 size={15} /> {state.text}
-                  </span>
                 )}
-                {state?.status === "error" && (
-                  <span className="errorText">
-                    <XCircle size={15} /> {state.text}
-                  </span>
-                )}
-                <span className="spacer" />
-                <button
-                  className="ghost danger"
-                  disabled={draft.jiraConnections.length === 1}
-                  onClick={() =>
-                    setDraft((current) => ({
-                      ...current,
-                      jiraConnections: current.jiraConnections.filter((item) => item.id !== connection.id)
-                    }))
-                  }
-                >
-                  <Trash2 size={15} /> Remove
-                </button>
               </div>
-            </div>
-          );
-        })}
-      </section>
 
-      <section className="panel">
-        <div className="panelHead">
-          <div>
-            <h3>Filters</h3>
-            <p>
-              Quick filters above the timesheet, each defined by a JQL such as <code>project in (SUP, OPS)</code>.
-              By default a filter narrows the base list (issues with your worklogs this month and the sources' extra
-              JQL). Tick <strong>Free</strong> to show exactly the issues its JQL returns instead, so you can log time
-              on issues you haven't logged on yet.
-            </p>
-          </div>
-          <button
-            className="secondary"
-            onClick={() => {
-              const id = newId("filter");
-              setDraft((current) => ({ ...current, filters: [...current.filters, { id, label: "", jql: "", free: false }] }));
-            }}
-          >
-            <Plus size={15} /> Add filter
-          </button>
-        </div>
-        <div className="baseJql">
-          <label htmlFor="base-jql">
-            Base JQL <span className="muted">— builds the base list: the issues shown under "All" and narrowed by filters</span>
-          </label>
-          <div className="baseJqlRow">
-            <input
-              id="base-jql"
-              value={draft.baseJql}
-              spellCheck={false}
-              onChange={(event) => setDraft({ ...draft, baseJql: event.target.value })}
-            />
-            <button
-              type="button"
-              className="secondary"
-              title="Back to the default base JQL"
-              aria-label="Reset base JQL"
-              disabled={draft.baseJql.trim() === DEFAULT_BASE_JQL}
-              onClick={() => setDraft({ ...draft, baseJql: DEFAULT_BASE_JQL })}
-            >
-              <RotateCcw size={14} /> Reset
-            </button>
-          </div>
-          <p className="hint">
-            <code>{"{monthStart}"}</code> and <code>{"{monthEnd}"}</code> are replaced with the first and last day of the month
-            you are viewing, so the list follows the month. Your logged time is read from the issues this JQL returns.
-            For this month it runs: <code>{previewBaseJql(draft.baseJql)}</code>
-          </p>
-        </div>
-
-        <div className="filterRow">
-          <span />
-          <span className="fixedLabel" title="The default view. It always stays first.">All</span>
-          <input
-            value={draft.allFilter.jql}
-            placeholder="Optional JQL. Empty: issues with your worklogs this month"
-            aria-label="JQL for All"
-            onChange={(event) => setDraft({ ...draft, allFilter: { ...draft.allFilter, jql: event.target.value } })}
-          />
-          <label className="check freeCheck" title="Show exactly the issues this JQL returns, not only the base list">
-            <input
-              type="checkbox"
-              aria-label="Free filter: All"
-              checked={draft.allFilter.free}
-              onChange={(event) => setDraft({ ...draft, allFilter: { ...draft.allFilter, free: event.target.checked } })}
-            />
-            Free
-          </label>
-          <span />
-        </div>
-        <div ref={filterListRef} className={dragId ? "filterList dragActive" : "filterList"}>
-        {draft.filters.map((filter, index) => (
-          <div
-            className={[
-              "filterRow",
-              dragId === filter.id ? "dragging" : "",
-              dragId && dropAt === index ? "dropBefore" : "",
-              dragId && dropAt === index + 1 && index === draft.filters.length - 1 ? "dropAfter" : ""
-            ].join(" ")}
-            key={filter.id}
-            data-filter-row
-          >
-            <span
-              className="dragHandle"
-              role="button"
-              tabIndex={-1}
-              title="Drag to reorder"
-              aria-label={`Move ${filter.label || "filter"}`}
-              onPointerDown={(event) => startDrag(event, filter.id)}
-            >
-              <GripVertical size={16} />
-            </span>
-            <input
-              value={filter.label}
-              placeholder="Label, e.g. Support"
-              onChange={(event) => patchFilter(filter.id, { label: event.target.value })}
-            />
-            <input
-              value={filter.jql}
-              placeholder="JQL, e.g. project in (SUP, OPS) AND labels = support"
-              aria-label={`JQL for ${filter.label || "filter"}`}
-              onChange={(event) => patchFilter(filter.id, { jql: event.target.value })}
-            />
-            <label className="check freeCheck" title="Show exactly the issues this JQL returns, not only the base list">
-              <input
-                type="checkbox"
-                aria-label={`Free filter: ${filter.label || "filter"}`}
-                checked={filter.free}
-                onChange={(event) => patchFilter(filter.id, { free: event.target.checked })}
-              />
-              Free
-            </label>
-            <button
-              className="icon danger"
-              title="Remove filter"
-              onClick={() => setDraft((current) => ({ ...current, filters: current.filters.filter((item) => item.id !== filter.id) }))}
-            >
-              <Trash2 size={15} />
-            </button>
-          </div>
-        ))}
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panelHead">
-          <div>
-            <h3>Absences</h3>
-            <p>
-              Days off registered as Jira issues (vacation, sick leave…). Their working days are left out of the norm
-              and shown in light grey.
-            </p>
-          </div>
-          <label className="check">
-            <input
-              type="checkbox"
-              aria-label="Use absences"
-              checked={draft.absences.enabled}
-              onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, enabled: event.target.checked } })}
-            />
-            Use absences
-          </label>
-        </div>
-        <div className="formGrid">
-          <label>
-            Jira source
-            <select
-              disabled={!draft.absences.enabled}
-              value={draft.absences.sourceId}
-              onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, sourceId: event.target.value } })}
-            >
-              <option value="">First enabled source</option>
-              {draft.jiraConnections.map((connection) => (
-                <option key={connection.id} value={connection.id}>
-                  {connection.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="wide">
-            Absences JQL
-            <input
-              disabled={!draft.absences.enabled}
-              value={draft.absences.jql}
-              onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, jql: event.target.value } })}
-            />
-          </label>
-          <span />
-          <label>
-            "Leave from date" field id
-            <input
-              disabled={!draft.absences.enabled}
-              value={draft.absences.fromField}
-              placeholder="customfield_10800"
-              onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, fromField: event.target.value } })}
-            />
-          </label>
-          <label>
-            "Leave to date" field id
-            <input
-              disabled={!draft.absences.enabled}
-              value={draft.absences.toField}
-              placeholder="customfield_10801"
-              onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, toField: event.target.value } })}
-            />
-          </label>
-        </div>
-      </section>
-
-      <section className="panel">
-        <h3>Timesheet</h3>
-        <div className="formGrid">
-          <label>
-            New worklog start time
-            <input
-              type="time"
-              value={draft.worklogStartTime}
-              onChange={(event) => setDraft({ ...draft, worklogStartTime: event.target.value || "09:00" })}
-            />
-          </label>
-          <label>
-            Daily norm, hours
-            <input
-              type="number"
-              min={1}
-              max={24}
-              step={0.5}
-              value={draft.dailyNormHours}
-              onChange={(event) => setDraft({ ...draft, dailyNormHours: Number(event.target.value) || 8 })}
-            />
-          </label>
-          <label>
-            Theme
-            <select value={draft.theme} onChange={(event) => setDraft({ ...draft, theme: event.target.value as Theme })}>
-              <option value="classic">Classic (original)</option>
-              <option value="system">Same as system</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
-          <label>
-            Table font
-            <select
-              value={draft.tableFont}
-              style={{ fontFamily: tableFontStack(draft.tableFont) }}
-              onChange={(event) => setDraft({ ...draft, tableFont: event.target.value })}
-            >
-              {TABLE_FONTS.map((font) => (
-                <option key={font.id} value={font.id} style={{ fontFamily: font.stack }}>
-                  {font.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Table font size
-            <select
-              value={draft.tableFontSize}
-              onChange={(event) => setDraft({ ...draft, tableFontSize: Number(event.target.value) })}
-            >
-              {TABLE_FONT_SIZES.map((size) => (
-                <option key={size} value={size}>
-                  {size}px{size === 12 ? " (original)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Background colour
-            <span className="colorField">
-              <input
-                type="color"
-                aria-label="Background colour"
-                value={draft.backgroundColor || themeBackground(draft.theme)}
-                onChange={(event) => setDraft({ ...draft, backgroundColor: event.target.value })}
-              />
-              <span className="colorValue">{draft.backgroundColor || "Theme default"}</span>
-              {draft.backgroundColor && (
-                <button type="button" className="ghost" onClick={() => setDraft({ ...draft, backgroundColor: "" })}>
-                  Reset
-                </button>
+              {info && (
+                <p className="appInfo">
+                  Settings file: <code>{info.dataFilePath}</code>
+                </p>
               )}
-            </span>
-          </label>
-          <label>
-            Show time as
-            <select
-              value={draft.displayFormat}
-              onChange={(event) => setDraft({ ...draft, displayFormat: event.target.value as "decimal" | "jira" })}
-            >
-              <option value="decimal">Decimal hours (1.5)</option>
-              <option value="jira">Jira style (1h 30m)</option>
-            </select>
-          </label>
-          <label className="check standalone">
-            <input
-              type="checkbox"
-              checked={draft.showWeekends}
-              onChange={(event) => setDraft({ ...draft, showWeekends: event.target.checked })}
-            />
-            Always show weekends
-          </label>
+            </section>
+          )}
         </div>
-      </section>
-
-      {info && (
-        <p className="appInfo">
-          Version {info.version} · Settings file: <code>{info.dataFilePath}</code>
-        </p>
-      )}
+      </div>
     </main>
   );
 }

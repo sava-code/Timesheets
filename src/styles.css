@@ -1275,3 +1275,140 @@ label.check.standalone {
   pointer-events: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }
+
+/* ---------------------------------------------------------------------------
+   Settings: tabs on the left, the selected part on the right
+   --------------------------------------------------------------------------- */
+
+.settingsBody {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.settingsTabs {
+  position: sticky;
+  top: 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settingsTabs button {
+  justify-content: flex-start;
+  gap: 9px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--muted);
+  text-align: left;
+}
+
+.settingsTabs button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.settingsTabs button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tabDot {
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: #f08c1a;
+}
+
+.settingsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.aboutHead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.aboutIcon {
+  width: 64px;
+  height: 64px;
+}
+
+.aboutHead h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.aboutHead p {
+  margin: 2px 0 0;
+}
+
+.updateBox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.updateRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.updateAvailable {
+  color: #b86200;
+  font-weight: 600;
+}
+
+.updateDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.updateDetails .hint {
+  margin: 0;
+  white-space: normal;
+  overflow: visible;
+}
+
+.releaseNotes pre {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  max-height: 240px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 760px) {
+  .settingsBody {
+    grid-template-columns: 1fr;
+  }
+  .settingsTabs {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+.about .appInfo {
+  margin: 14px 0 0;
+}

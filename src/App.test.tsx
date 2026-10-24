@@ -113,6 +113,7 @@ describe("Timesheet grid", () => {
     await screen.findByText("INT-15");
     expect(document.documentElement.dataset.theme).toBe("classic");
     await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Appearance" }));
     await user.selectOptions(await screen.findByLabelText("Theme"), "dark");
     expect(document.documentElement.dataset.theme).toBe("dark");
     // Leaving without saving restores the saved theme...
@@ -120,6 +121,7 @@ describe("Timesheet grid", () => {
     expect(document.documentElement.dataset.theme).toBe("classic");
     // ...and saving keeps the new one.
     await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Appearance" }));
     await user.selectOptions(await screen.findByLabelText("Theme"), "dark");
     await user.click(screen.getByRole("button", { name: /save settings/i }));
     await screen.findByText("Settings saved.");
@@ -158,6 +160,7 @@ describe("Timesheet grid", () => {
     render(<App />);
     await screen.findByText("INT-15");
     await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Appearance" }));
     await user.selectOptions(await screen.findByLabelText("Table font"), "mono");
     await user.selectOptions(screen.getByLabelText("Table font size"), "18");
     await user.click(screen.getByRole("button", { name: /save settings/i }));
@@ -181,6 +184,7 @@ describe("Timesheet grid", () => {
 
     await user.click(screen.getByRole("button", { name: /settings/i }));
     expect(screen.queryByLabelText("Table text")).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("tab", { name: "Appearance" }));
     const picker = screen.getByLabelText("Background colour", { selector: "input" }) as HTMLInputElement;
     fireEvent.input(picker, { target: { value: "#fdf6e3" } });
     expect(document.documentElement.style.getPropertyValue("--bg")).toBe("#fdf6e3");
@@ -252,6 +256,7 @@ describe("Timesheet grid", () => {
     // All with a narrowing JQL.
     const current = await api.loadData();
     await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Filters" }));
     await user.type(await screen.findByLabelText("JQL for All"), "project = IMPL");
     await user.click(screen.getByRole("button", { name: /save settings/i }));
     await screen.findByText("Settings saved.");
@@ -264,6 +269,7 @@ describe("Timesheet grid", () => {
 
     // Ticking Free makes All its own list.
     await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Filters" }));
     await user.click(await screen.findByLabelText("Free filter: All"));
     await user.click(screen.getByRole("button", { name: /save settings/i }));
     await screen.findByText("Settings saved.");
@@ -289,6 +295,7 @@ describe("Timesheet grid", () => {
 
     // Switching absences off restores the full norm.
     await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Absences" }));
     await user.click(await screen.findByLabelText("Use absences"));
     await user.click(screen.getByRole("button", { name: /save settings/i }));
     await screen.findByText("Settings saved.");
@@ -340,6 +347,7 @@ describe("Timesheet grid", () => {
     expect(chips()).toEqual(["All", "Support", "Implementation", "SME", "All support"]);
 
     await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Filters" }));
     // Rows (after "All") stacked 40px apart: Support 0-40, Implementation 40-80, SME 80-120, All support 120-160.
     [...document.querySelectorAll<HTMLElement>("[data-filter-row]")].forEach((row, index) => {
       row.getBoundingClientRect = () => ({ top: index * 40, height: 40, bottom: index * 40 + 40, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON() {} });
@@ -361,6 +369,7 @@ describe("Timesheet grid", () => {
     render(<App />);
     await screen.findByText("INT-15");
     await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Filters" }));
     const field = (await screen.findByLabelText(/Base JQL/)) as HTMLInputElement;
     expect(field.value).toBe('worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"');
     const month = currentMonth();
@@ -375,11 +384,41 @@ describe("Timesheet grid", () => {
     expect((await window.timesheets.loadData()).settings.baseJql).toBe("worklogAuthor = currentUser() AND project = SUP");
   });
 
+  it("shows Settings as tabs and checks for updates on the About tab", async () => {
+    window.timesheets = createDevApi({ latestVersion: "0.9.0" });
+    const user = userEvent.setup();
+    const open = vi.spyOn(window.timesheets, "openExternal");
+    render(<App />);
+    await screen.findByText("INT-15");
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Jira sources",
+      "Filters",
+      "Absences",
+      "Timesheet",
+      "Appearance",
+      "About & updates"
+    ]);
+    // Each tab shows only its own part.
+    await user.click(screen.getByRole("tab", { name: "Absences" }));
+    expect(screen.getByLabelText("Use absences")).toBeInTheDocument();
+    expect(screen.queryByLabelText("JQL for All")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "About & updates" }));
+    await user.click(screen.getByRole("button", { name: /check for updates/i }));
+    expect(await screen.findByText("Version 0.9.0 is available.")).toBeInTheDocument();
+    expect(screen.getByText(/Demo release notes/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Update available")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Download Timesheets-0.9.0-mac-universal.dmg/ }));
+    expect(open).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/github.com\/sava-code\/Timesheets\/releases\/download\//));
+  });
+
   it("shows Forget next to the saved password", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("INT-15");
     await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Jira sources" }));
     const field = (await screen.findAllByPlaceholderText("Saved — type to replace"))[0];
     expect(within(field.closest(".secretRow") as HTMLElement).getByRole("button", { name: "Forget" })).toBeInTheDocument();
   });

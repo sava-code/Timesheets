@@ -43,6 +43,8 @@ The app asks for confirmation before deleting more than one worklog, or any work
 - Clearing or reducing a cell works correctly. The Python version tried to set the worklog to 0, which Jira rejects.
 - The "worklogs" filter is optional and configurable per source. ScriptRunner is not needed.
 
+- **Updates.** *Settings → About & updates → Check for updates* asks GitHub Releases for a newer version, shows its notes and links the file for your computer (the portable exe on Windows, the dmg on macOS). Nothing is downloaded or installed automatically. This needs the GitHub repository to be public.
+
 ## Setup
 
 1. Open **Settings**. On first launch the app opens there automatically.

@@ -11,5 +11,6 @@ contextBridge.exposeInMainWorld("timesheets", {
   deleteWorklog: (sourceId, payload) => ipcRenderer.invoke("jira:deleteWorklog", sourceId, payload),
   testConnection: (connection) => ipcRenderer.invoke("jira:testConnection", connection),
   openExternal: (url) => ipcRenderer.invoke("app:openExternal", url),
-  getAppInfo: () => ipcRenderer.invoke("app:getInfo")
+  getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
+  checkForUpdates: () => ipcRenderer.invoke("update:check")
 });

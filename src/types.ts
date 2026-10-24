@@ -136,8 +136,26 @@ export interface AbsenceSettings {
   toField: string;
 }
 
+export type UpdateStage = "idle" | "checking" | "up-to-date" | "available" | "error";
+
+export interface UpdateStatus {
+  stage: UpdateStage;
+  currentVersion: string;
+  version?: string;
+  releaseName?: string;
+  releaseNotes?: string;
+  releaseDate?: string;
+  releaseUrl: string;
+  /** Direct link to the file for this computer (dmg / portable exe), when the release has one. */
+  downloadName?: string;
+  downloadUrl?: string;
+  message: string;
+}
+
 export interface AppInfo {
   version: string;
+  author?: string;
+  releasesUrl?: string;
   dataFilePath: string;
 }
 
@@ -158,6 +176,7 @@ export interface TimesheetsApi {
   testConnection: (connection: JiraConnection) => Promise<{ ok: boolean; displayName: string; emailAddress?: string }>;
   openExternal: (url: string) => Promise<void>;
   getAppInfo: () => Promise<AppInfo>;
+  checkForUpdates: () => Promise<UpdateStatus>;
 }
 
 declare global {

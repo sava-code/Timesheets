@@ -102,7 +102,7 @@ function seededData(month: string): Map<string, Worklog[]> {
   return bySource;
 }
 
-export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): TimesheetsApi {
+export function createDevApi(options: { canDeleteWorklogs?: boolean; latestVersion?: string } = {}): TimesheetsApi {
   const canDelete = options.canDeleteWorklogs !== false;
   let data: AppData = {
     version: 1,
@@ -268,6 +268,22 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
     },
     openExternal: async (url) => {
       window.open(url, "_blank");
+    },
+    checkForUpdates: async () => {
+      await delay(400);
+      const latest = options.latestVersion || "0.0.1";
+      const newer = latest.localeCompare("0.8.0", undefined, { numeric: true }) > 0;
+      return {
+        stage: newer ? "available" : "up-to-date",
+        currentVersion: "0.8.0",
+        version: latest,
+        releaseNotes: newer ? "- Demo release notes\n- Another change" : "",
+        releaseDate: "2026-10-25",
+        releaseUrl: `https://github.com/sava-code/Timesheets/releases/tag/v${latest}`,
+        downloadName: newer ? `Timesheets-${latest}-mac-universal.dmg` : "",
+        downloadUrl: newer ? `https://github.com/sava-code/Timesheets/releases/download/v${latest}/Timesheets-${latest}-mac-universal.dmg` : "",
+        message: newer ? `Version ${latest} is available.` : "Timesheets 0.8.0 is up to date."
+      };
     },
     getAppInfo: async () => ({ version: "dev", dataFilePath: "(browser preview: nothing is saved)" })
   };
