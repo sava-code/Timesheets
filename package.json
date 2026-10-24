@@ -1,7 +1,7 @@
 {
   "name": "timesheets",
   "productName": "Timesheets",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "description": "Desktop app for viewing and editing your monthly Jira worklogs in a spreadsheet-like grid.",
   "author": "sava-code",
@@ -20,8 +20,9 @@
     "build": "tsc --noEmit && vite build",
     "start": "npm run build && electron .",
     "pack": "npm run verify && electron-builder --dir --publish never",
-    "dist": "npm run verify && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --publish never",
+    "dist": "npm run dist:portable",
     "dist:portable": "npm run verify && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable --publish never",
+    "dist:installer": "npm run verify && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --publish never",
     "dist:mac": "npm run verify && electron-builder --mac --publish never"
   },
   "dependencies": {
@@ -61,7 +62,7 @@
     },
     "win": {
       "target": [
-        "nsis"
+        "portable"
       ]
     },
     "mac": {

@@ -335,6 +335,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
 
   // Inner width of the table frame without its scrollbar, so Summary can take exactly the space left.
   const [gridSpace, setGridSpace] = useState(0);
+  const hasGrid = activeSources.length > 0;
   useEffect(() => {
     const element = gridRef.current;
     if (!element || typeof ResizeObserver === "undefined") return;
@@ -343,7 +344,55 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
     observer.observe(element);
     measure();
     return () => observer.disconnect();
+  }, [hasGrid]);
+
+  // Debug: a "Layout" line in the Activity log with the measured table geometry, written after
+  // each load and whenever the layout changes (resize, font, weekends). Helps find what makes
+  // the table wider than the window.
+  const [appVersion, setAppVersion] = useState("");
+  useEffect(() => {
+    void api()
+      .getAppInfo()
+      .then((info) => setAppVersion(info.version))
+      .catch(() => undefined);
   }, []);
+  const lastLayoutLog = useRef("");
+  useEffect(() => {
+    const element = gridRef.current;
+    if (!element || !result) return;
+    const timer = window.setTimeout(() => {
+      const width = (selector: string) => {
+        const cell = element.querySelector(selector);
+        return cell ? Math.round(cell.getBoundingClientRect().width * 10) / 10 : 0;
+      };
+      const u = settings.tableFontSize;
+      const planned = { key: u * 7.85, total: u * 4.6, day: u * 3.3 };
+      const actual = {
+        key: width("thead th.keyCol"),
+        summary: width("thead th.summaryCol"),
+        total: width("thead th.totalCol"),
+        day: width("thead th.dayCol")
+      };
+      const scrollbar = element.offsetWidth - element.clientWidth - 2;
+      const overflow = element.scrollWidth - element.clientWidth;
+      const wider = (["key", "total", "day"] as const)
+        .filter((name) => actual[name] - planned[name] > 1)
+        .map((name) => `${name} ${actual[name]}px instead of ${Math.round(planned[name] * 10) / 10}px`);
+      const text =
+        `Layout${appVersion ? ` (v${appVersion})` : ""}: window ${window.innerWidth}px, ` +
+        `zoom ${Math.round(window.devicePixelRatio * 100) / 100}, table frame ${element.clientWidth}px ` +
+        `(scrollbar ${scrollbar}px), table ${element.scrollWidth}px, ` +
+        `${overflow > 0 ? `TOO WIDE by ${overflow}px` : "fits"} · ` +
+        `columns: key ${actual.key}, summary ${actual.summary}, total ${actual.total}, day ${actual.day} × ${days.length}, ` +
+        `font ${u}px` +
+        (wider.length ? ` · wider than planned: ${wider.join(", ")}` : "");
+      if (text !== lastLayoutLog.current) {
+        lastLayoutLog.current = text;
+        addLog(overflow > 0 ? "error" : "info", text);
+      }
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [result, gridSpace, days.length, settings.tableFontSize, settings.tableFont, rows.length, appVersion, addLog]);
 
   useEffect(() => {
     if (!selected || editing) return;

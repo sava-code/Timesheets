@@ -482,6 +482,25 @@ tr:hover .unpin {
   text-decoration: underline;
 }
 
+/* Long keys and source names are cut with "…" so the Key column keeps its width */
+.grid td.keyCol,
+.grid .totalCol {
+  max-width: var(--key-w);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid .totalCol {
+  max-width: var(--total-w);
+}
+
+.keyCol a,
+.keyCol .source {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .keyCol .source {
   display: block;
   font-size: 0.72em;

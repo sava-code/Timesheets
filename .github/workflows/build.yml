@@ -16,9 +16,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            script: dist
+            script: dist:portable
             files: |
-              release/Timesheets-*-setup.exe
+              release/Timesheets-*-portable.exe
           - os: macos-14
             script: dist:mac
             files: |
