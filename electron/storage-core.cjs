@@ -1,5 +1,7 @@
 // Pure settings logic (no Electron imports) so it can be unit-tested.
 
+const { DEFAULT_BASE_JQL } = require("./jira-core.cjs");
+
 const DATA_VERSION = 6;
 
 // Absences (vacation, sick leave...) registered as Jira issues; their days are left out of the norm.
@@ -66,6 +68,7 @@ function defaultData() {
       displayFormat: "decimal",
       ...DEFAULT_APPEARANCE,
       // The "All" chip. Empty JQL: issues with your worklogs this month (+ each source's extra JQL).
+      baseJql: DEFAULT_BASE_JQL,
       allFilter: { jql: "", free: false },
       absences: { ...DEFAULT_ABSENCES },
       filters: DEFAULT_FILTERS.map((filter) => ({ ...filter })),
@@ -171,6 +174,7 @@ function mergeDefaults(data) {
       tableFont: /^[a-z0-9-]{1,32}$/.test(String(settings.tableFont)) ? String(settings.tableFont) : "system",
       tableFontSize: clampFontSize(settings.tableFontSize),
       backgroundColor: /^#[0-9a-f]{6}$/i.test(String(settings.backgroundColor)) ? String(settings.backgroundColor).toLowerCase() : "",
+      baseJql: String(settings.baseJql || "").trim() || DEFAULT_BASE_JQL,
       allFilter: normalizeAllFilter(settings.allFilter),
       absences: normalizeAbsences(
         data && version < 6 && String(settings.absences?.jql || "").trim() === PREVIOUS_ABSENCES_JQL

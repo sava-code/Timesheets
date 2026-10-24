@@ -885,10 +885,97 @@ label.check.standalone {
 
 .filterRow {
   display: grid;
-  grid-template-columns: 220px 1fr auto 32px;
+  grid-template-columns: 22px 220px 1fr auto 32px;
   align-items: center;
   gap: 8px;
   margin-top: 8px;
+}
+
+.dragHandle {
+  display: grid;
+  place-items: center;
+  height: 32px;
+  color: var(--muted);
+  cursor: grab;
+  border-radius: 4px;
+}
+
+.dragHandle:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.dragHandle:active,
+.filterList.dragActive,
+.filterList.dragActive * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.filterRow {
+  position: relative;
+}
+
+.filterRow.dragging {
+  opacity: 0.45;
+}
+
+/* Where the dragged filter will land */
+.filterRow.dropBefore::before,
+.filterRow.dropAfter::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.filterRow.dropBefore::before {
+  top: -6px;
+}
+
+.filterRow.dropAfter::after {
+  bottom: -6px;
+}
+
+.baseJql {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 4px 0 18px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.baseJqlRow {
+  display: flex;
+  gap: 8px;
+}
+
+.baseJqlRow input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.baseJql .hint {
+  margin: 0;
+  white-space: normal;
+  overflow: visible;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.baseJql code {
+  font-size: 12px;
+  color: var(--text);
+  word-break: break-word;
 }
 
 .fixedLabel {

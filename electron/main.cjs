@@ -83,7 +83,7 @@ ipcMain.handle("jira:fetchMonth", async (_event, month) => {
     loadAbsences(),
     ...connections.map(async (connection) => {
       try {
-        const result = await jira.fetchSourceMonth(connection, month);
+        const result = await jira.fetchSourceMonth(connection, month, data.settings.baseJql);
         if (result.warning) {
           errors.push({ sourceId: connection.id, sourceName: connection.name, message: result.warning });
         }

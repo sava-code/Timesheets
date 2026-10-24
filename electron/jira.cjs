@@ -127,11 +127,11 @@ async function issueWorklogs(connection, issueKey, range) {
 }
 
 // Everything the timesheet needs from one Jira source for one month.
-async function fetchSourceMonth(connection, month) {
+async function fetchSourceMonth(connection, month, baseJql) {
   const range = core.monthRange(month);
   const myself = await getMyself(connection);
 
-  const logged = await searchAllIssues(connection, core.monthWorklogJql(month));
+  const logged = await searchAllIssues(connection, core.monthWorklogJql(month, baseJql));
   let extra = [];
   let extraError = "";
   if (connection.extraJql) {

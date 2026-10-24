@@ -145,7 +145,8 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   // Reload when the month changes or the set of Jira sources is edited in Settings.
   const sourcesSignature = JSON.stringify([
     settings.jiraConnections.map((item) => [item.id, item.enabled, item.baseUrl, item.extraJql, item.tokenPresent]),
-    settings.absences
+    settings.absences,
+    settings.baseJql
   ]);
   useEffect(() => {
     setSelected(null);

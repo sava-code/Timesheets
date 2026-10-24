@@ -115,6 +115,7 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
       tableFont: "system",
       tableFontSize: 12,
       backgroundColor: "",
+      baseJql: 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"',
       allFilter: { jql: "", free: false },
       absences: {
         enabled: true,

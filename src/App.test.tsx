@@ -332,6 +332,49 @@ describe("Timesheet grid", () => {
     expect(icon.alt).toMatch(/Task|Bug|Story|Sub-task/);
   });
 
+  it("reorders filters by drag and drop in Settings, with All kept first", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("INT-15");
+    const chips = () => screen.getAllByRole("radio").map((chip) => chip.textContent);
+    expect(chips()).toEqual(["All", "Support", "Implementation", "SME", "All support"]);
+
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    // Rows (after "All") stacked 40px apart: Support 0-40, Implementation 40-80, SME 80-120, All support 120-160.
+    [...document.querySelectorAll<HTMLElement>("[data-filter-row]")].forEach((row, index) => {
+      row.getBoundingClientRect = () => ({ top: index * 40, height: 40, bottom: index * 40 + 40, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON() {} });
+    });
+    // Drag "Support" to below "SME" (y 110 is in SME's lower half).
+    fireEvent.pointerDown(screen.getByLabelText("Move Support"), { button: 0, clientY: 20 });
+    fireEvent(window, new MouseEvent("pointermove", { clientY: 110 }));
+    expect(document.querySelectorAll(".filterRow.dropBefore")).toHaveLength(1);
+    fireEvent(window, new MouseEvent("pointerup", { clientY: 110 }));
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    expect(chips()).toEqual(["All", "Implementation", "SME", "Support", "All support"]);
+  });
+
+  it("shows and edits the base JQL, which reloads the month", async () => {
+    const user = userEvent.setup();
+    const fetch = vi.spyOn(window.timesheets, "fetchMonth");
+    render(<App />);
+    await screen.findByText("INT-15");
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    const field = (await screen.findByLabelText(/Base JQL/)) as HTMLInputElement;
+    expect(field.value).toBe('worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"');
+    const month = currentMonth();
+    expect(screen.getByText(new RegExp(`worklogDate >= "${month}-01"`))).toBeInTheDocument();
+    await user.clear(field);
+    await user.type(field, "worklogAuthor = currentUser() AND project = SUP");
+    expect(screen.getByRole("button", { name: "Reset base JQL" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect((await window.timesheets.loadData()).settings.baseJql).toBe("worklogAuthor = currentUser() AND project = SUP");
+  });
+
   it("shows Forget next to the saved password", async () => {
     const user = userEvent.setup();
     render(<App />);

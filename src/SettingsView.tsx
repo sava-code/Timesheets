@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { CheckCircle2, LoaderCircle, Plus, Save, Trash2, XCircle } from "lucide-react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { CheckCircle2, GripVertical, LoaderCircle, Plus, RotateCcw, Save, Trash2, XCircle } from "lucide-react";
 import { api, errorText } from "./api";
 import type { AppData, AppInfo, FilterGroup, JiraConnection, Settings, Theme } from "./types";
 import { applyTheme, themeBackground } from "./theme";
@@ -11,6 +11,17 @@ interface Props {
 }
 
 type TestState = { status: "running" } | { status: "ok"; text: string } | { status: "error"; text: string };
+
+const DEFAULT_BASE_JQL = 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"';
+
+/** The base JQL as it runs for the current month. */
+function previewBaseJql(template: string): string {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const month = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return (template.trim() || DEFAULT_BASE_JQL).replace(/\{monthStart\}/g, `${month}-01`).replace(/\{monthEnd\}/g, `${month}-${pad(last)}`);
+}
 
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -59,6 +70,64 @@ export function SettingsView({ data, onSaved }: Props) {
       delete next[id];
       return next;
     });
+  };
+
+  // Drag and drop to reorder filters ("All" stays first). `dropAt` is the index the dragged filter
+  // would take; it is shown as a line between rows.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropAt, setDropAt] = useState<number | null>(null);
+
+  const moveFilter = (id: string, toIndex: number) => {
+    setDraft((current) => {
+      const from = current.filters.findIndex((item) => item.id === id);
+      if (from < 0) return current;
+      const filters = [...current.filters];
+      const [moved] = filters.splice(from, 1);
+      filters.splice(toIndex > from ? toIndex - 1 : toIndex, 0, moved);
+      return { ...current, filters };
+    });
+  };
+
+  const endDrag = () => {
+    setDragId(null);
+    setDropAt(null);
+  };
+
+  // Pointer-based dragging: press the handle, move, release. The drop position is the gap between
+  // filter rows closest to the pointer.
+  const filterListRef = useRef<HTMLDivElement>(null);
+  const startDrag = (event: ReactPointerEvent<HTMLElement>, id: string) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const list = filterListRef.current;
+    if (!list) return;
+    setDragId(id);
+    const gapAt = (clientY: number) => {
+      const rows = [...list.querySelectorAll<HTMLElement>("[data-filter-row]")];
+      const index = rows.findIndex((row) => {
+        const rect = row.getBoundingClientRect();
+        return clientY < rect.top + rect.height / 2;
+      });
+      return index < 0 ? rows.length : index;
+    };
+    setDropAt(gapAt(event.clientY));
+    const onMove = (move: PointerEvent) => setDropAt(gapAt(move.clientY));
+    const onUp = (up: PointerEvent) => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      moveFilter(id, gapAt(up.clientY));
+      endDrag();
+    };
+    const onCancel = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      endDrag();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
   };
 
   const patchFilter = (id: string, patch: Partial<FilterGroup>) => {
@@ -267,8 +336,38 @@ export function SettingsView({ data, onSaved }: Props) {
             <Plus size={15} /> Add filter
           </button>
         </div>
+        <div className="baseJql">
+          <label htmlFor="base-jql">
+            Base JQL <span className="muted">— builds the base list: the issues shown under "All" and narrowed by filters</span>
+          </label>
+          <div className="baseJqlRow">
+            <input
+              id="base-jql"
+              value={draft.baseJql}
+              spellCheck={false}
+              onChange={(event) => setDraft({ ...draft, baseJql: event.target.value })}
+            />
+            <button
+              type="button"
+              className="secondary"
+              title="Back to the default base JQL"
+              aria-label="Reset base JQL"
+              disabled={draft.baseJql.trim() === DEFAULT_BASE_JQL}
+              onClick={() => setDraft({ ...draft, baseJql: DEFAULT_BASE_JQL })}
+            >
+              <RotateCcw size={14} /> Reset
+            </button>
+          </div>
+          <p className="hint">
+            <code>{"{monthStart}"}</code> and <code>{"{monthEnd}"}</code> are replaced with the first and last day of the month
+            you are viewing, so the list follows the month. Your logged time is read from the issues this JQL returns.
+            For this month it runs: <code>{previewBaseJql(draft.baseJql)}</code>
+          </p>
+        </div>
+
         <div className="filterRow">
-          <span className="fixedLabel" title="The default view. Its label can't be changed.">All</span>
+          <span />
+          <span className="fixedLabel" title="The default view. It always stays first.">All</span>
           <input
             value={draft.allFilter.jql}
             placeholder="Optional JQL. Empty: issues with your worklogs this month"
@@ -286,8 +385,28 @@ export function SettingsView({ data, onSaved }: Props) {
           </label>
           <span />
         </div>
-        {draft.filters.map((filter) => (
-          <div className="filterRow" key={filter.id}>
+        <div ref={filterListRef} className={dragId ? "filterList dragActive" : "filterList"}>
+        {draft.filters.map((filter, index) => (
+          <div
+            className={[
+              "filterRow",
+              dragId === filter.id ? "dragging" : "",
+              dragId && dropAt === index ? "dropBefore" : "",
+              dragId && dropAt === index + 1 && index === draft.filters.length - 1 ? "dropAfter" : ""
+            ].join(" ")}
+            key={filter.id}
+            data-filter-row
+          >
+            <span
+              className="dragHandle"
+              role="button"
+              tabIndex={-1}
+              title="Drag to reorder"
+              aria-label={`Move ${filter.label || "filter"}`}
+              onPointerDown={(event) => startDrag(event, filter.id)}
+            >
+              <GripVertical size={16} />
+            </span>
             <input
               value={filter.label}
               placeholder="Label, e.g. Support"
@@ -317,6 +436,7 @@ export function SettingsView({ data, onSaved }: Props) {
             </button>
           </div>
         ))}
+        </div>
       </section>
 
       <section className="panel">

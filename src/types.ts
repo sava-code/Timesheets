@@ -55,6 +55,8 @@ export interface Settings {
   tableFontSize: number;
   /** "#rrggbb" for the window and table background, or "" for the theme default. */
   backgroundColor: string;
+  /** JQL for the base list; {monthStart} and {monthEnd} are replaced with the month's dates. */
+  baseJql: string;
   allFilter: AllFilter;
   absences: AbsenceSettings;
   filters: FilterGroup[];

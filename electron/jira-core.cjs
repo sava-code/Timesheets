@@ -36,9 +36,15 @@ function monthRange(month) {
   return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, "0")}` };
 }
 
-function monthWorklogJql(month) {
+// The base list: issues you logged time on in the month. {monthStart}/{monthEnd} become the dates
+// of the month being viewed (YYYY-MM-DD).
+const DEFAULT_BASE_JQL = 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"';
+
+function monthWorklogJql(month, template = DEFAULT_BASE_JQL) {
   const { from, to } = monthRange(month);
-  return `worklogAuthor = currentUser() AND worklogDate >= "${from}" AND worklogDate <= "${to}" ORDER BY key ASC`;
+  return String(template || DEFAULT_BASE_JQL)
+    .replace(/\{monthStart\}/g, from)
+    .replace(/\{monthEnd\}/g, to);
 }
 
 // "ORDER BY" can't be wrapped in parentheses, and order doesn't matter for matching.
@@ -206,6 +212,7 @@ async function mapLimit(items, limit, worker) {
 }
 
 module.exports = {
+  DEFAULT_BASE_JQL,
   apiVersion,
   isTrustedIconUrl,
   fieldDate,

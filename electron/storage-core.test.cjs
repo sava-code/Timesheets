@@ -112,6 +112,13 @@ describe("storage-core", () => {
     });
   });
 
+  it("defaults the base JQL and falls back to it when cleared", () => {
+    const base = 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"';
+    expect(core.defaultData().settings.baseJql).toBe(base);
+    expect(core.mergeDefaults({ version: 6, settings: { baseJql: "  " } }).settings.baseJql).toBe(base);
+    expect(core.mergeDefaults({ version: 6, settings: { baseJql: " project = SUP " } }).settings.baseJql).toBe("project = SUP");
+  });
+
   it("validates the background colour and the All/free filter settings", () => {
     const good = core.mergeDefaults({
       version: 3,

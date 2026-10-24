@@ -2,10 +2,12 @@
 const core = require("./jira-core.cjs");
 
 describe("jira-core", () => {
-  it("builds a month JQL with explicit dates", () => {
-    expect(core.monthWorklogJql("2026-02")).toBe(
-      'worklogAuthor = currentUser() AND worklogDate >= "2026-02-01" AND worklogDate <= "2026-02-28" ORDER BY key ASC'
+  it("builds the base JQL for a month from the template", () => {
+    expect(core.monthWorklogJql("2026-02")).toBe('worklogAuthor = currentUser() AND worklogDate >= "2026-02-01" AND worklogDate <= "2026-02-28"');
+    expect(core.monthWorklogJql("2026-10", "worklogAuthor = currentUser() AND worklogDate >= {monthStart} AND project = SUP")).toBe(
+      "worklogAuthor = currentUser() AND worklogDate >= 2026-10-01 AND project = SUP"
     );
+    expect(core.monthWorklogJql("2026-10", "")).toBe(core.monthWorklogJql("2026-10"));
     expect(() => core.monthRange("2026-2")).toThrow();
   });
 
