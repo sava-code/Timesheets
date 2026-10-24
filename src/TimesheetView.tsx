@@ -690,8 +690,8 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
         <table className="grid">
           <thead>
             <tr className="dayRow">
-              <th className="keyCol">Key</th>
               <th className="summaryCol">Summary</th>
+              <th className="keyCol">Key</th>
               <th className="totalCol">Total</th>
               {days.map((day) => (
                 <th
@@ -705,10 +705,10 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
               ))}
             </tr>
             <tr className="totalsRow">
-              <th className="keyCol" />
               <th className="summaryCol">
                 {narrowJql || search.trim() ? `Total · ${rows.length} of ${allRows.length} issues` : `Total · ${rows.length} issues`}
               </th>
+              <th className="keyCol" />
               <th className="totalCol">{formatDuration(filteredTotal, format)}</th>
               {days.map((day) => (
                 <th
@@ -724,6 +724,16 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
           <tbody>
             {rows.map((row) => (
               <tr key={row.id}>
+                <td className="summaryCol" data-tip={row.issue.issueType ? `${row.issue.issueType} · ${row.issue.summary}` : row.issue.summary}>
+                  <span className="summaryInner">
+                    {row.issue.typeIcon ? (
+                      <img className="typeIcon" src={row.issue.typeIcon} alt={row.issue.issueType || ""} />
+                    ) : (
+                      <span className="typeIcon placeholder" />
+                    )}
+                    <span className="summaryText">{row.issue.summary}</span>
+                  </span>
+                </td>
                 <td className="keyCol">
                   <a
                     href={row.issue.url}
@@ -736,9 +746,6 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                     {row.issue.key}
                   </a>
                   {multiSource && <span className="source">{row.issue.sourceName}</span>}
-                </td>
-                <td className="summaryCol" data-tip={row.issue.summary}>
-                  <span className="summaryText">{row.issue.summary}</span>
                 </td>
                 <td className="totalCol">{formatDuration(row.total, format)}</td>
                 {days.map((day) => {

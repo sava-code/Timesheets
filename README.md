@@ -6,7 +6,7 @@ Jira is the only source of truth. Each cell shows your own logged time on one is
 
 ## Features
 
-- **Month grid.** Rows are issues, columns are days, with daily totals at the top and a total for each issue. Navigate to any month.
+- **Month grid.** Rows are issues (Jira issue type icon, summary, key, month total), columns are days, with daily totals at the top. Navigate to any month.
 - **Spreadsheet editing.** Click a cell and type, or double-click it. Enter moves down, Tab moves right, arrow keys move, Esc cancels, Delete clears the cell.
 - **Flexible time input.** Accepts `1.5`, `1,5`, `1h 30m`, `90m`, `1.5h` and `1:30`. An empty value or `0` deletes the time.
 - **Several Jira instances in one grid.** Supports Jira Server/Data Center (API v2) and Jira Cloud (API v3), with password/API token or personal access token auth.

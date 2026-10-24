@@ -135,8 +135,23 @@ function toIssue(connection, raw) {
     summary: fields.summary || raw.key,
     projectKey: fields.project?.key || String(raw.key).split("-")[0],
     status: fields.status?.name || "",
-    url: `${normalizeBaseUrl(connection.baseUrl)}/browse/${raw.key}`
+    url: `${normalizeBaseUrl(connection.baseUrl)}/browse/${raw.key}`,
+    issueType: fields.issuetype?.name || "",
+    // Jira's URL for the issue type icon; replaced by a data: URL in the main process (it needs auth).
+    typeIcon: fields.issuetype?.iconUrl || ""
   };
+}
+
+/** Only fetch icons from the Jira itself (or its own avatar host on Cloud), never arbitrary URLs. */
+function isTrustedIconUrl(connection, url) {
+  try {
+    const icon = new URL(url);
+    const base = new URL(normalizeBaseUrl(connection.baseUrl));
+    if (icon.protocol !== "https:" && icon.protocol !== "http:") return false;
+    return icon.host === base.host || /(^|\.)atl-paas\.net$|(^|\.)atlassian\.net$/.test(icon.host);
+  } catch (_error) {
+    return false;
+  }
 }
 
 // Jira expects e.g. 2026-10-05T09:00:00.000+0200, in the user's local offset.
@@ -192,6 +207,7 @@ async function mapLimit(items, limit, worker) {
 
 module.exports = {
   apiVersion,
+  isTrustedIconUrl,
   fieldDate,
   toAbsence,
   chunk,

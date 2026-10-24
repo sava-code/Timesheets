@@ -38,6 +38,20 @@ describe("jira-core", () => {
     expect(core.toAbsence(connection, raw({}), "customfield_10800", "customfield_10801")).toBeNull();
   });
 
+  it("keeps the issue type and only trusts icon URLs from the Jira itself", () => {
+    const connection = { id: "s", name: "S", baseUrl: "https://jira.example.com" };
+    const issue = core.toIssue(connection, {
+      key: "SUP-1",
+      fields: { summary: "x", issuetype: { name: "Bug", iconUrl: "https://jira.example.com/secure/viewavatar?avatarId=10303&avatarType=issuetype" } }
+    });
+    expect(issue).toMatchObject({ issueType: "Bug", typeIcon: "https://jira.example.com/secure/viewavatar?avatarId=10303&avatarType=issuetype" });
+    expect(core.isTrustedIconUrl(connection, issue.typeIcon)).toBe(true);
+    expect(core.isTrustedIconUrl({ baseUrl: "https://acme.atlassian.net" }, "https://acme.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10318")).toBe(true);
+    expect(core.isTrustedIconUrl(connection, "https://evil.example.org/icon.svg")).toBe(false);
+    expect(core.isTrustedIconUrl(connection, "file:///etc/passwd")).toBe(false);
+    expect(core.isTrustedIconUrl(connection, "not a url")).toBe(false);
+  });
+
   it("builds auth headers", () => {
     expect(core.buildAuthHeader({ authType: "bearer" }, "abc")).toBe("Bearer abc");
     expect(core.buildAuthHeader({ authType: "basic", email: "u" }, "p")).toBe(`Basic ${Buffer.from("u:p").toString("base64")}`);

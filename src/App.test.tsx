@@ -320,6 +320,18 @@ describe("Timesheet grid", () => {
     expect(screen.getByRole("radio", { name: "All" })).not.toHaveClass("active");
   });
 
+  it("shows columns as Summary, Key, Total and the issue type icon before the summary", async () => {
+    render(<App />);
+    await screen.findByText("INT-15");
+    const headings = [...document.querySelectorAll("thead tr.dayRow th")].slice(0, 3).map((th) => th.textContent);
+    expect(headings).toEqual(["Summary", "Key", "Total"]);
+    const firstRow = document.querySelector("tbody tr")!;
+    expect([...firstRow.children].slice(0, 2).map((td) => td.className)).toEqual(["summaryCol", "keyCol"]);
+    const icon = firstRow.querySelector<HTMLImageElement>("td.summaryCol img.typeIcon")!;
+    expect(icon.src).toMatch(/^data:image\/svg\+xml/);
+    expect(icon.alt).toMatch(/Task|Bug|Story|Sub-task/);
+  });
+
   it("shows Forget next to the saved password", async () => {
     const user = userEvent.setup();
     render(<App />);

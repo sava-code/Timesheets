@@ -20,7 +20,24 @@ const UNLOGGED_ISSUES: Array<[string, string, string]> = [
   ["client", "OPS-512", "Weekend deployment window"]
 ];
 
+// Demo issue type icons (simple shapes, like Jira's): Task, Bug, Story, Sub-task.
+const svgIcon = (body: string) => `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">${body}</svg>`)}`;
+const DEMO_TYPES: Record<string, [string, string]> = {
+  Task: ["Task", svgIcon('<rect width="16" height="16" rx="3" fill="#4bade8"/><path d="M4.5 8.2l2.3 2.3 4.7-4.9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>')],
+  Bug: ["Bug", svgIcon('<rect width="16" height="16" rx="3" fill="#e5493a"/><circle cx="8" cy="8" r="3.5" fill="#fff"/>')],
+  Story: ["Story", svgIcon('<rect width="16" height="16" rx="3" fill="#63ba3c"/><path d="M5 3.5h6v9l-3-2.2-3 2.2z" fill="#fff"/>')],
+  Subtask: ["Sub-task", svgIcon('<rect width="16" height="16" rx="3" fill="#4bade8"/><rect x="4" y="4" width="5" height="5" rx="1" fill="none" stroke="#fff" stroke-width="1.6"/><rect x="7" y="7" width="5" height="5" rx="1" fill="#fff"/>')]
+};
+const demoType = (key: string) => {
+  const project = key.split("-")[0];
+  if (project === "SUP" || project === "OPS") return DEMO_TYPES.Bug;
+  if (project === "IMPL" || project === "BA") return DEMO_TYPES.Story;
+  if (project === "ARCH") return DEMO_TYPES.Subtask;
+  return DEMO_TYPES.Task;
+};
+
 function issue(sourceId: string, key: string, summary: string): Issue {
+  const [issueType, typeIcon] = demoType(key);
   return {
     sourceId,
     sourceName: sourceId === "main" ? "Delivery Jira" : "Client Jira",
@@ -28,7 +45,9 @@ function issue(sourceId: string, key: string, summary: string): Issue {
     summary,
     projectKey: key.split("-")[0],
     status: "In Progress",
-    url: `https://jira.example.com/browse/${key}`
+    url: `https://jira.example.com/browse/${key}`,
+    issueType,
+    typeIcon
   };
 }
 

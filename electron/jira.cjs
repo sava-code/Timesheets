@@ -1,7 +1,7 @@
 const { decryptToken } = require("./storage.cjs");
 const core = require("./jira-core.cjs");
 
-const ISSUE_FIELDS = ["summary", "project", "status"];
+const ISSUE_FIELDS = ["summary", "project", "status", "issuetype"];
 const REQUEST_TIMEOUT_MS = 30000;
 
 async function jiraRequest(connection, path, options = {}) {
@@ -159,11 +159,53 @@ async function fetchSourceMonth(connection, month) {
   });
 
   return {
-    issues: [...issues.values()],
+    issues: await withTypeIcons(connection, [...issues.values()]),
     worklogs,
     user: myself?.displayName || myself?.name || "",
     warning: extraError
   };
+}
+
+// Issue type icons need the Jira login, so they are downloaded here once per URL and handed to
+// the window as data: URLs (also allowed by the window's content security policy).
+const ICON_MAX_BYTES = 200 * 1024;
+const iconCache = new Map();
+
+async function fetchIconDataUrl(connection, url) {
+  if (iconCache.has(url)) return iconCache.get(url);
+  const pending = (async () => {
+    if (!core.isTrustedIconUrl(connection, url)) return "";
+    const token = connection.token || decryptToken(connection);
+    const headers = { Accept: "image/svg+xml,image/png,image/*" };
+    const sameHost = new URL(url).host === new URL(core.normalizeBaseUrl(connection.baseUrl)).host;
+    if (token && sameHost) headers.Authorization = core.buildAuthHeader(connection, token);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(url, { headers, signal: controller.signal });
+      const type = (response.headers.get("content-type") || "").split(";")[0].trim();
+      if (!response.ok || !/^image\/(svg\+xml|png|gif|jpeg|webp)$/.test(type)) return "";
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (bytes.length > ICON_MAX_BYTES) return "";
+      return `data:${type};base64,${bytes.toString("base64")}`;
+    } catch (_error) {
+      return "";
+    } finally {
+      clearTimeout(timeout);
+    }
+  })();
+  iconCache.set(url, pending);
+  const result = await pending;
+  if (!result) iconCache.delete(url); // try again on the next load
+  return result;
+}
+
+/** Replaces each issue's typeIcon URL with a data: URL ("" when it can't be loaded). */
+async function withTypeIcons(connection, issues) {
+  const urls = [...new Set(issues.map((issue) => issue.typeIcon).filter(Boolean))];
+  const icons = new Map();
+  await core.mapLimit(urls, 4, async (url) => icons.set(url, await fetchIconDataUrl(connection, url)));
+  return issues.map((issue) => ({ ...issue, typeIcon: icons.get(issue.typeIcon) || "" }));
 }
 
 async function createWorklog(connection, { issueKey, date, seconds, startTime }) {
@@ -214,7 +256,7 @@ const FREE_SEARCH_LIMIT = 1000;
 async function searchIssues(connection, jql) {
   const raw = await searchAllIssues(connection, jql, ISSUE_FIELDS, FREE_SEARCH_LIMIT);
   return {
-    issues: raw.slice(0, FREE_SEARCH_LIMIT).map((issue) => core.toIssue(connection, issue)),
+    issues: await withTypeIcons(connection, raw.slice(0, FREE_SEARCH_LIMIT).map((issue) => core.toIssue(connection, issue))),
     truncated: raw.length >= FREE_SEARCH_LIMIT
   };
 }

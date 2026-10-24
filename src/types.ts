@@ -74,6 +74,10 @@ export interface Issue {
   projectKey: string;
   status: string;
   url: string;
+  /** Issue type name, e.g. "Bug" */
+  issueType?: string;
+  /** Issue type icon as a data: URL ("" when unavailable) */
+  typeIcon?: string;
 }
 
 export interface Worklog {

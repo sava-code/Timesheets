@@ -418,9 +418,10 @@ button:focus-visible {
   color: var(--text);
 }
 
+/* Frozen columns, left to right: Summary, Key, Total */
 .grid .keyCol {
   position: sticky;
-  left: 0;
+  left: var(--summary-w);
   z-index: 1;
   width: var(--key-w);
   min-width: var(--key-w);
@@ -429,7 +430,7 @@ button:focus-visible {
 
 .grid .summaryCol {
   position: sticky;
-  left: var(--key-w);
+  left: 0;
   z-index: 1;
   width: var(--summary-w);
   min-width: var(--summary-w);
@@ -453,12 +454,30 @@ button:focus-visible {
   display: table-cell;
 }
 
-.summaryText {
+.summaryInner {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  min-width: 0;
+}
+
+/* Jira issue type icon (Task, Bug, Story...) */
+.typeIcon {
+  flex-shrink: 0;
+  width: 1.15em;
+  height: 1.15em;
+  object-fit: contain;
+}
+
+.typeIcon.placeholder {
   display: inline-block;
-  max-width: calc(100% - 20px);
+}
+
+.summaryText {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  vertical-align: middle;
 }
 
 .unpin {
