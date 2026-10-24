@@ -1,6 +1,6 @@
 # Timesheets
 
-A desktop app for managing your Jira worklogs in a monthly, spreadsheet-like grid. It is a rewrite of the Python/Dash [jira-timesheets](https://github.com/mixaxa85/jira-timesheets) tool.
+A desktop app for managing your Jira worklogs in a monthly, spreadsheet-like grid. It is a rewrite of the Python/Dash [jira-timesheets](https://github.com/sava-code/jira-timesheets) tool.
 
 Jira is the only source of truth. Each cell shows your own logged time on one issue for one day. Changing a cell writes to Jira immediately.
 
