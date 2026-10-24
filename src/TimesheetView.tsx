@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -346,6 +347,37 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
     return () => observer.disconnect();
   }, [hasGrid]);
 
+  // Key column: as wide as the longest issue key (and source name under it) on screen, so keys are
+  // never cut. Measured inside the table, so it uses exactly the table's font and digit widths.
+  const [keyFit, setKeyFit] = useState(0);
+  const keyTexts = useMemo(
+    () => [...new Set(rows.map((row) => row.issue.key))].join("\n") + "\u0000" + (multiSource ? [...new Set(rows.map((row) => row.issue.sourceName))].join("\n") : ""),
+    [rows, multiSource]
+  );
+  useLayoutEffect(() => {
+    const table = gridRef.current?.querySelector("table.grid");
+    // Hidden (Settings open): nothing can be measured; this runs again when the table is shown.
+    if (!table || !rows.length || !gridRef.current?.clientWidth) return;
+    const u = settings.tableFontSize;
+    const probe = document.createElement("span");
+    probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0";
+    table.appendChild(probe);
+    const measure = (text: string, size = "1em") => {
+      probe.style.fontSize = size;
+      probe.textContent = text;
+      return probe.getBoundingClientRect().width;
+    };
+    const [keys, sources] = keyTexts.split("\u0000");
+    let widest = measure("Key");
+    for (const key of keys.split("\n")) widest = Math.max(widest, measure(key));
+    for (const source of sources ? sources.split("\n") : []) widest = Math.max(widest, measure(source, "0.72em"));
+    probe.remove();
+    // + padding (0.43em each side) + borders and rounding; between a minimum and a cap,
+    // so a very long source name can't take over the table.
+    const width = Math.min(Math.max(Math.ceil(widest + u * 0.86 + 3), Math.round(u * 6)), Math.round(u * 14));
+    setKeyFit(width);
+  }, [keyTexts, settings.tableFontSize, settings.tableFont, gridSpace > 0]);
+
   // Debug: a "Layout" line in the Activity log with the measured table geometry, written after
   // each load and whenever the layout changes (resize, font, weekends). Helps find what makes
   // the table wider than the window.
@@ -366,7 +398,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
         return cell ? Math.round(cell.getBoundingClientRect().width * 10) / 10 : 0;
       };
       const u = settings.tableFontSize;
-      const planned = { key: u * 7.85, total: u * 4.6, day: u * 3.3 };
+      const planned = { key: keyFit || u * 7.85, total: u * 4.6, day: u * 3.3 };
       const actual = {
         key: width("thead th.keyCol"),
         summary: width("thead th.summaryCol"),
@@ -392,7 +424,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
       }
     }, 800);
     return () => window.clearTimeout(timer);
-  }, [result, gridSpace, days.length, settings.tableFontSize, settings.tableFont, rows.length, appVersion, addLog]);
+  }, [result, gridSpace, days.length, settings.tableFontSize, settings.tableFont, rows.length, keyFit, appVersion, addLog]);
 
   useEffect(() => {
     if (!selected || editing) return;
@@ -594,6 +626,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
           "--grid-font": tableFontStack(settings.tableFont),
           "--grid-font-size": `${settings.tableFontSize}px`,
           "--days": days.length,
+          ...(keyFit ? { "--key-fit": `${keyFit}px` } : {}),
           ...(gridSpace ? { "--grid-space": `${gridSpace}px` } : {})
         } as CSSProperties
       }

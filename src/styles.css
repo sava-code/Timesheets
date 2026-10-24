@@ -228,7 +228,8 @@ button:focus-visible {
      --grid-space is the measured inner width of the table frame (without its scrollbar); until it is
      measured, the window width minus page padding and frame is used. 1px absorbs rounding. */
   --u: var(--grid-font-size, 14px);
-  --key-w: calc(var(--u) * 7.85);
+  /* --key-fit: measured width of the longest key / source name on screen (set by the app) */
+  --key-w: var(--key-fit, calc(var(--u) * 7.85));
   --total-w: calc(var(--u) * 4.6);
   --day-w: calc(var(--u) * 3.3);
   --summary-w: max(
