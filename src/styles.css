@@ -224,15 +224,16 @@ button:focus-visible {
 
 .timesheet {
   /* Table geometry. Key, Total and the day columns have fixed widths; Summary takes what is left
-     of the window (--days = number of visible days), never below a readable minimum.
-     44px = page padding, table frame and scrollbar. */
+     (--days = number of visible days), never below a readable minimum.
+     --grid-space is the measured inner width of the table frame (without its scrollbar); until it is
+     measured, the window width minus page padding and frame is used. 1px absorbs rounding. */
   --u: var(--grid-font-size, 14px);
   --key-w: calc(var(--u) * 7.85);
   --total-w: calc(var(--u) * 4.6);
   --day-w: calc(var(--u) * 3.3);
   --summary-w: max(
     calc(var(--u) * 13),
-    calc(100vw - 44px - var(--key-w) - var(--total-w) - var(--days, 23) * var(--day-w))
+    calc(var(--grid-space, calc(100vw - 42px)) - 1px - var(--key-w) - var(--total-w) - var(--days, 23) * var(--day-w))
   );
   flex: 1;
   min-height: 0;

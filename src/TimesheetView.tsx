@@ -333,6 +333,18 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
 
   useEffect(() => () => window.clearTimeout(tipTimer.current), []);
 
+  // Inner width of the table frame without its scrollbar, so Summary can take exactly the space left.
+  const [gridSpace, setGridSpace] = useState(0);
+  useEffect(() => {
+    const element = gridRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const measure = () => setGridSpace(element.clientWidth);
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!selected || editing) return;
     gridRef.current
@@ -532,7 +544,8 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
         {
           "--grid-font": tableFontStack(settings.tableFont),
           "--grid-font-size": `${settings.tableFontSize}px`,
-          "--days": days.length
+          "--days": days.length,
+          ...(gridSpace ? { "--grid-space": `${gridSpace}px` } : {})
         } as CSSProperties
       }
     >
