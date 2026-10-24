@@ -223,6 +223,17 @@ button:focus-visible {
 /* Timesheet */
 
 .timesheet {
+  /* Table geometry. Key, Total and the day columns have fixed widths; Summary takes what is left
+     of the window (--days = number of visible days), never below a readable minimum.
+     44px = page padding, table frame and scrollbar. */
+  --u: var(--grid-font-size, 14px);
+  --key-w: calc(var(--u) * 7.85);
+  --total-w: calc(var(--u) * 4.6);
+  --day-w: calc(var(--u) * 3.3);
+  --summary-w: max(
+    calc(var(--u) * 13),
+    calc(100vw - 44px - var(--key-w) - var(--total-w) - var(--days, 23) * var(--day-w))
+  );
   flex: 1;
   min-height: 0;
   display: flex;
@@ -272,9 +283,10 @@ button:focus-visible {
      "Find issue"; past that the chips wrap. */
 .filters {
   --search-width: 220px;
+  --control-h: 32px;
   display: grid;
   grid-template-columns:
-    minmax(calc(1px + var(--grid-font-size, 14px) * 32.15), max-content)
+    minmax(calc(1px + var(--key-w) + var(--summary-w)), max-content)
     minmax(var(--search-width), 1fr)
     auto;
   align-items: center;
@@ -289,6 +301,7 @@ button:focus-visible {
 /* The JQL search and "Find issue" share one style */
 .jqlSearch,
 .search {
+  height: var(--control-h);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -409,18 +422,18 @@ button:focus-visible {
   position: sticky;
   left: 0;
   z-index: 1;
-  width: calc(var(--u) * 7.85);
-  min-width: calc(var(--u) * 7.85);
+  width: var(--key-w);
+  min-width: var(--key-w);
   text-align: left;
 }
 
 .grid .summaryCol {
   position: sticky;
-  left: calc(var(--u) * 7.85); /* = width of the key column */
+  left: var(--key-w);
   z-index: 1;
-  width: calc(var(--u) * 24.3);
-  min-width: calc(var(--u) * 24.3);
-  max-width: calc(var(--u) * 24.3);
+  width: var(--summary-w);
+  min-width: var(--summary-w);
+  max-width: var(--summary-w);
   text-align: left;
 }
 
@@ -477,8 +490,8 @@ tr:hover .unpin {
 }
 
 .grid .dayCol {
-  width: calc(var(--u) * 3.3);
-  min-width: calc(var(--u) * 3.3);
+  width: var(--day-w);
+  min-width: var(--day-w);
   text-align: center;
 }
 
@@ -528,10 +541,10 @@ tr:hover .unpin {
 /* Right after Summary and frozen with Key and Summary; the thick line separates them from the days. */
 .grid .totalCol {
   position: sticky;
-  left: calc(var(--u) * (7.85 + 24.3)); /* = Key + Summary widths */
+  left: calc(var(--key-w) + var(--summary-w));
   z-index: 1;
-  width: calc(var(--u) * 4.6);
-  min-width: calc(var(--u) * 4.6);
+  width: var(--total-w);
+  min-width: var(--total-w);
   text-align: right;
   font-weight: 600;
   border-right: 2px solid var(--border-strong);
@@ -1096,4 +1109,44 @@ label.check.standalone {
 
 .gridWrap .grid tbody tr:hover td:not(.selected) {
   background: var(--row-hover);
+}
+
+/* Filter buttons: the same frame, height and font size as the search boxes.
+   The selected one looks like the Refresh button. */
+.filters .chip {
+  height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.filters .chip:hover:not(.active) {
+  background: var(--surface-2);
+}
+
+.filters .chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 400;
+}
+
+/* Hints in the table: shown after 1 second */
+.gridTip {
+  position: fixed;
+  z-index: 50;
+  max-width: 360px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: #333333;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-line;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }

@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent
+} from "react";
 import { ChevronLeft, ChevronRight, Code2, LoaderCircle, RefreshCw, Search, UserRound, X } from "lucide-react";
 import { api, errorText } from "./api";
 import { tableFontStack } from "./fonts";
@@ -73,6 +82,10 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   // Issues returned by the free JQL in use (search box or free filter).
   const [freeResult, setFreeResult] = useState<{ key: string; search: SearchResult } | null>(null);
   const lastSources = useRef<SourceRows[]>([]);
+  // Hints in the table (elements with data-tip) appear after 1 second; native tooltips wait longer.
+  const [tip, setTip] = useState<{ text: string; left: number; top: number; above: boolean } | null>(null);
+  const tipTimer = useRef<number>();
+  const tipTarget = useRef<Element | null>(null);
   const [loadCount, setLoadCount] = useState(0);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Cell | null>(null);
@@ -293,6 +306,33 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
 
   const focusGrid = () => gridRef.current?.focus({ preventScroll: true });
 
+  const hideTip = () => {
+    window.clearTimeout(tipTimer.current);
+    tipTarget.current = null;
+    setTip(null);
+  };
+
+  const onGridMouseOver = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const target = (event.target as Element).closest("[data-tip]");
+    if (target === tipTarget.current) return;
+    hideTip();
+    const text = target?.getAttribute("data-tip");
+    if (!target || !text) return;
+    tipTarget.current = target;
+    tipTimer.current = window.setTimeout(() => {
+      const rect = target.getBoundingClientRect();
+      const above = rect.bottom + 90 > window.innerHeight;
+      setTip({
+        text,
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - 368)),
+        top: above ? rect.top - 6 : rect.bottom + 6,
+        above
+      });
+    }, 1000);
+  };
+
+  useEffect(() => () => window.clearTimeout(tipTimer.current), []);
+
   useEffect(() => {
     if (!selected || editing) return;
     gridRef.current
@@ -491,7 +531,8 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
       style={
         {
           "--grid-font": tableFontStack(settings.tableFont),
-          "--grid-font-size": `${settings.tableFontSize}px`
+          "--grid-font-size": `${settings.tableFontSize}px`,
+          "--days": days.length
         } as CSSProperties
       }
     >
@@ -593,6 +634,10 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
         ref={gridRef}
         tabIndex={0}
         onKeyDown={onGridKeyDown}
+        onMouseOver={onGridMouseOver}
+        onMouseLeave={hideTip}
+        onMouseDown={hideTip}
+        onScroll={hideTip}
         aria-label="Timesheet grid. Use arrow keys to move, type a value to edit."
       >
         <table className="grid">
@@ -605,7 +650,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                 <th
                   key={day.key}
                   className={["dayCol", day.isWeekend ? "weekend" : "", day.key === today ? "today" : "", absent.has(day.key) ? "absent" : ""].join(" ")}
-                  title={absenceTitle(day.key) || undefined}
+                  data-tip={absenceTitle(day.key) || undefined}
                 >
                   <span className="dayNum">{day.day}</span>
                   <span className="dayName">{day.weekday}</span>
@@ -622,7 +667,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                 <th
                   key={day.key}
                   className={["dayCol", totalClass(day.key, day.isWeekend, totals[day.key])].join(" ")}
-                  title={absenceTitle(day.key) || undefined}
+                  data-tip={absenceTitle(day.key) || undefined}
                 >
                   {formatDuration(totals[day.key], format)}
                 </th>
@@ -639,13 +684,13 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                       event.preventDefault();
                       void api().openExternal(row.issue.url);
                     }}
-                    title={`Open ${row.issue.key} in ${row.issue.sourceName}`}
+                    data-tip={`Open ${row.issue.key} in ${row.issue.sourceName}`}
                   >
                     {row.issue.key}
                   </a>
                   {multiSource && <span className="source">{row.issue.sourceName}</span>}
                 </td>
-                <td className="summaryCol" title={row.issue.summary}>
+                <td className="summaryCol" data-tip={row.issue.summary}>
                   <span className="summaryText">{row.issue.summary}</span>
                 </td>
                 <td className="totalCol">{formatDuration(row.total, format)}</td>
@@ -676,7 +721,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                         isPending ? "pending" : "",
                         worklogs.length > 1 ? "multi" : ""
                       ].join(" ")}
-                      title={tooltip}
+                      data-tip={tooltip}
                       onMouseDown={(event) => {
                         if (isEditing) return;
                         event.preventDefault();
@@ -727,6 +772,16 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
           </tbody>
         </table>
       </div>
+
+      {tip && (
+        <div
+          className="gridTip"
+          role="tooltip"
+          style={{ left: tip.left, top: tip.top, transform: tip.above ? "translateY(-100%)" : undefined }}
+        >
+          {tip.text}
+        </div>
+      )}
 
       <section className="bottomBar">
         <p className="hint">Double-click or type in a cell · 1.5 · 1h 30m · 90m · Delete clears</p>

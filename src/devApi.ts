@@ -100,7 +100,7 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean } = {}): Tim
       absences: {
         enabled: true,
         sourceId: "",
-        jql: "project = calendar AND Employee = currentUser()",
+        jql: 'project = calendar AND Employee = currentUser() and type = "Absence Request"',
         fromField: "customfield_10800",
         toField: "customfield_10801"
       },

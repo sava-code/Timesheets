@@ -1,15 +1,18 @@
 // Pure settings logic (no Electron imports) so it can be unit-tested.
 
-const DATA_VERSION = 5;
+const DATA_VERSION = 6;
 
 // Absences (vacation, sick leave...) registered as Jira issues; their days are left out of the norm.
 const DEFAULT_ABSENCES = {
   enabled: true,
   sourceId: "", // "" = the first enabled Jira source
-  jql: "project = calendar AND Employee = currentUser()",
+  jql: 'project = calendar AND Employee = currentUser() and type = "Absence Request"',
   fromField: "customfield_10800", // "Leave from date"
   toField: "customfield_10801" // "Leave to date"
 };
+
+// The default absences JQL before version 6; settings still holding it get the new default once.
+const PREVIOUS_ABSENCES_JQL = "project = calendar AND Employee = currentUser()";
 
 // Filters every installation starts with. Free: they list issues even without time logged this month.
 const DEFAULT_FILTERS = [
@@ -169,7 +172,11 @@ function mergeDefaults(data) {
       tableFontSize: clampFontSize(settings.tableFontSize),
       backgroundColor: /^#[0-9a-f]{6}$/i.test(String(settings.backgroundColor)) ? String(settings.backgroundColor).toLowerCase() : "",
       allFilter: normalizeAllFilter(settings.allFilter),
-      absences: normalizeAbsences(settings.absences),
+      absences: normalizeAbsences(
+        data && version < 6 && String(settings.absences?.jql || "").trim() === PREVIOUS_ABSENCES_JQL
+          ? { ...settings.absences, jql: DEFAULT_ABSENCES.jql }
+          : settings.absences
+      ),
       filters: withDefaultFilters(
         Array.isArray(settings.filters) ? settings.filters.map(normalizeFilter) : [],
         data ? version : DATA_VERSION

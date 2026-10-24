@@ -140,7 +140,7 @@ describe("Timesheet grid", () => {
     // Add lots of time to the last row: it stays in place until the next refresh.
     const last = before[before.length - 1]!;
     const day = workingDayKey();
-    const rowId = document.querySelector(`a[title^="Open ${last} "]`)!.closest("tr")!.querySelector("[data-cell]")!.getAttribute("data-cell")!.split("|")[0];
+    const rowId = document.querySelector(`a[data-tip^="Open ${last} "]`)!.closest("tr")!.querySelector("[data-cell]")!.getAttribute("data-cell")!.split("|")[0];
     await user.click(cell(rowId, day));
     await user.keyboard("20{Enter}");
     await waitFor(() => expect(cell(rowId, day)).toHaveTextContent(/\d/));
@@ -282,7 +282,7 @@ describe("Timesheet grid", () => {
     const vacation = workdays[6].key;
     const header = document.querySelectorAll<HTMLElement>("thead tr.dayRow th.absent");
     expect(header).toHaveLength(3);
-    expect(header[0].title).toMatch(/CAL-101 · Vacation/);
+    expect(header[0].dataset.tip).toMatch(/CAL-101 · Vacation/);
     expect(cell("main:INT-15", vacation)).toHaveClass("absent");
     // Absence days are never coloured as short days.
     expect(document.querySelectorAll("thead tr.totalsRow th.absent.under, thead tr.totalsRow th.absent.empty")).toHaveLength(0);
@@ -295,6 +295,29 @@ describe("Timesheet grid", () => {
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
     await waitFor(() => expect(normText()).toBe(String(workdays.length * 8)));
     expect(document.querySelectorAll("th.absent")).toHaveLength(0);
+  });
+
+  it("shows a cell's worklogs as a hint after 1 second", async () => {
+    render(<App />);
+    await screen.findByText("INT-15");
+    const withTime = document.querySelector<HTMLElement>("td.cell[data-tip]")!;
+    expect(withTime.getAttribute("title")).toBeNull();
+    fireEvent.mouseOver(withTime);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(await screen.findByRole("tooltip", undefined, { timeout: 1000 })).toHaveTextContent(withTime.dataset.tip!.split("\n")[0]);
+    fireEvent.mouseLeave(document.querySelector(".gridWrap")!);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("styles the selected filter like the Refresh button", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("INT-15");
+    expect(screen.getByRole("radio", { name: "All" })).toHaveClass("chip", "active");
+    await user.click(screen.getByRole("radio", { name: "Support" }));
+    expect(screen.getByRole("radio", { name: "Support" })).toHaveClass("active");
+    expect(screen.getByRole("radio", { name: "All" })).not.toHaveClass("active");
   });
 
   it("shows Forget next to the saved password", async () => {

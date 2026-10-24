@@ -43,7 +43,7 @@ describe("storage-core", () => {
     for (const version of [1, 2]) {
       const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, backgroundColor: "" } });
       expect(old.settings).toMatchObject(DEFAULT_LOOK);
-      expect(old.version).toBe(5);
+      expect(old.version).toBe(6);
     }
     // From version 3 on, the user's choice is kept.
     const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" } });
@@ -88,10 +88,17 @@ describe("storage-core", () => {
     expect(core.defaultData().settings.absences).toEqual({
       enabled: true,
       sourceId: "",
-      jql: "project = calendar AND Employee = currentUser()",
+      jql: 'project = calendar AND Employee = currentUser() and type = "Absence Request"',
       fromField: "customfield_10800",
       toField: "customfield_10801"
     });
+    // The previous default is updated once; an edited JQL is kept.
+    const previous = (jql, version = 5) => core.mergeDefaults({ version, settings: { absences: { jql } } }).settings.absences.jql;
+    expect(previous("project = calendar AND Employee = currentUser()")).toBe('project = calendar AND Employee = currentUser() and type = "Absence Request"');
+    expect(previous("project = calendar AND Employee = currentUser() AND status = Approved")).toBe(
+      "project = calendar AND Employee = currentUser() AND status = Approved"
+    );
+    expect(previous("project = calendar AND Employee = currentUser()", 6)).toBe("project = calendar AND Employee = currentUser()");
     const custom = core.mergeDefaults({
       version: 4,
       settings: { absences: { enabled: false, sourceId: "b", jql: " ", fromField: "customfield_1", toField: "bad field; drop" } }
@@ -99,7 +106,7 @@ describe("storage-core", () => {
     expect(custom).toEqual({
       enabled: false,
       sourceId: "b",
-      jql: "project = calendar AND Employee = currentUser()",
+      jql: 'project = calendar AND Employee = currentUser() and type = "Absence Request"',
       fromField: "customfield_1",
       toField: "customfield_10801"
     });
