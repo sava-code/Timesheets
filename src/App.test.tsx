@@ -538,7 +538,9 @@ describe("Timesheet grid", () => {
     const clients = within(within(chart).getByRole("list", { name: "Top clients" })).getAllByRole("listitem");
     expect(clients.length).toBeGreaterThan(0);
     expect(clients.length).toBeLessThanOrEqual(5);
-    expect(chart).toHaveTextContent(`Top ${clients.length} clients`);
+    expect(chart).toHaveTextContent("Top clients");
+    expect(chart).not.toHaveTextContent(/Top \d+ clients/);
+    expect([...chart.querySelectorAll(".shareCaption")].map((item) => item.textContent)).toEqual(["Allocation", "Top clients"]);
     expect(chart).toHaveTextContent("Northwind Bank");
     expect(chart).toHaveTextContent("Support");
 

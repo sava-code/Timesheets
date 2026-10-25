@@ -54,11 +54,14 @@ export function AllocationChart({ allocation, clients, format, categories }: Pro
   return (
     <section className="allocation" aria-label="Worklogs allocation">
       {allocation.length > 0 && (
-        <ShareLegend label="Allocation" format={format} items={allocation.map((share) => ({ ...share, color: categoryColor(share.name) }))} />
+        <div className="shareLine">
+          <span className="shareCaption">Allocation</span>
+          <ShareLegend label="Allocation" format={format} items={allocation.map((share) => ({ ...share, color: categoryColor(share.name) }))} />
+        </div>
       )}
       {clients.length > 0 && (
-        <div className="clientsLine">
-          <span className="shareCaption">Top {clients.length} clients</span>
+        <div className="shareLine">
+          <span className="shareCaption">Top clients</span>
           <ShareLegend
             label="Top clients"
             format={format}

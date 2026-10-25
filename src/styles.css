@@ -1624,18 +1624,18 @@ label.check.standalone {
 }
 
 /* Worklogs allocation and top clients under the table: colour-keyed lines */
+/* Two columns: captions, then the legends, so both lines start at the same place. */
 .allocation {
   flex: none;
   display: grid;
-  gap: 6px;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
   padding: 10px 0 2px;
   font-size: 12px;
 }
 
-.clientsLine {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.shareLine {
+  display: contents;
 }
 
 .shareCaption {
