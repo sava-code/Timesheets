@@ -26,6 +26,14 @@ function workingDayKeys() {
   return (past.length >= 3 ? past : all).map((day) => day.key);
 }
 
+/** The big value of a toolbar indicator, found by its caption (e.g. "Month" -> "152"). */
+function indicatorValue(caption: string) {
+  const indicator = [...document.querySelectorAll<HTMLElement>(".toolbar .indicator")].find(
+    (item) => item.querySelector(".indicatorCaption")!.textContent === caption
+  )!;
+  return indicator.querySelector(".indicatorValue")!.textContent!.replace(/h$/, "");
+}
+
 function cell(rowId: string, day: string) {
   const element = document.querySelector<HTMLElement>(`[data-cell="${rowId}|${day}"]`);
   if (!element) throw new Error(`cell ${rowId}|${day} not found`);
@@ -291,10 +299,11 @@ describe("Timesheet grid", () => {
     // The demo has 3 absence working days: CAL-101 (2 days) and CAL-102 (1 day).
     const workdays = monthDays(currentMonth()).filter((day) => !day.isWeekend);
     // "Target" = working days up to today, without absence days, × 8h.
-    const normText = () => screen.getByText("Target").querySelector("strong")!.textContent;
+    const normText = () => indicatorValue("Target to date");
     const pastDays = workdays.filter((day) => day.key <= todayKey());
     const absentPast = [6, 7, 14].filter((index) => workdays[index].key <= todayKey()).length;
     expect(normText()).toBe(String((pastDays.length - absentPast) * 8 || 0));
+    expect(indicatorValue("Month")).toBe(String((workdays.length - 3) * 8));
     const vacation = workdays[6].key;
     const header = document.querySelectorAll<HTMLElement>("thead tr.dayRow th.absent");
     expect(header).toHaveLength(3);
@@ -311,6 +320,7 @@ describe("Timesheet grid", () => {
     await screen.findByText("Settings saved.");
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
     await waitFor(() => expect(normText()).toBe(String(pastDays.length * 8 || 0)));
+    expect(indicatorValue("Month")).toBe(String(workdays.length * 8));
     expect(document.querySelectorAll("th.absent")).toHaveLength(0);
   });
 
@@ -423,17 +433,25 @@ describe("Timesheet grid", () => {
     expect(open).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/github.com\/sava-code\/Timesheets\/releases\/download\//));
   });
 
-  it("shows logging quality and time left to log next to Refresh", async () => {
+  it("shows Target to date, Month, Left to post and Timeliness next to Refresh", async () => {
     render(<App />);
     await screen.findByText("INT-15");
     const indicators = [...document.querySelectorAll<HTMLElement>(".toolbar .indicator")];
-    expect(indicators).toHaveLength(2);
-    // Demo worklogs are mostly logged the same day, some 1-3 days later.
-    expect(indicators[0].querySelector(".indicatorValue")!.textContent).toMatch(/^\d{1,3}%$/);
-    expect(indicators[0].title).toMatch(/weighted by time/);
-    expect(indicators[0].title).toMatch(/up to 3 working days: 100%/);
-    expect(indicators[0].querySelector(".indicatorValue")!.textContent).toMatch(/^(100|90|70|50|30|10)%$/);
-    expect(indicators[1].querySelector(".indicatorLabel")!.textContent).toMatch(/Left to log|All logged|over the norm/);
+    expect(indicators.map((item) => item.querySelector(".indicatorCaption")!.textContent)).toEqual([
+      "Target to date",
+      "Month",
+      expect.stringMatching(/^(Left to post|Over target)$/),
+      "Timeliness"
+    ]);
+    // Same size for all values; the plan values are grey.
+    expect(indicators.every((item) => item.querySelector(".indicatorValue"))).toBe(true);
+    expect(indicators[0]).toHaveClass("neutral");
+    expect(indicators[1]).toHaveClass("neutral");
+    // Timeliness: one of the scale levels, explained in the hint.
+    expect(indicatorValue("Timeliness")).toMatch(/^(100|90|70|50|30|10)%$/);
+    expect(indicators[3].title).toMatch(/how soon worklogs are posted/);
+    expect(indicators[3].title).toMatch(/up to 3 working days: 100%/);
+    expect(screen.queryByText("Logged")).not.toBeInTheDocument();
   });
 
   it("asks for a comment on new worklogs when enabled, never on changes", async () => {

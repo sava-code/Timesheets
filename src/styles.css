@@ -1414,17 +1414,41 @@ label.check.standalone {
 }
 
 /* ---------------------------------------------------------------------------
-   Indicators next to Refresh: logging quality and time left to log
+   Indicators next to Refresh: Target to date, Month, Left to post, Timeliness.
+   Same size for all; caption on top, value, optional line underneath.
    --------------------------------------------------------------------------- */
+
+.indicators {
+  display: flex;
+  align-items: stretch;
+  margin-left: auto;
+  margin-right: 6px;
+}
 
 .indicator {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  line-height: 1.05;
+  justify-content: flex-start;
+  min-width: 84px;
   padding: 0 14px;
   border-left: 1px solid var(--border);
+  line-height: 1.05;
   cursor: default;
+}
+
+.indicator:first-child {
+  border-left: 0;
+}
+
+.indicatorCaption {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  margin-bottom: 3px;
 }
 
 .indicatorValue {
@@ -1432,6 +1456,7 @@ label.check.standalone {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .indicatorValue small {
@@ -1446,6 +1471,10 @@ label.check.standalone {
   color: var(--muted);
   margin-top: 3px;
   white-space: nowrap;
+}
+
+.indicator.neutral .indicatorValue {
+  color: var(--muted);
 }
 
 .indicator.good .indicatorValue,
@@ -1470,10 +1499,6 @@ label.check.standalone {
 :root[data-theme="dark"] .indicator.poor .indicatorValue,
 :root[data-theme="dark"] .indicator.toLog .indicatorValue {
   color: #f06a6a;
-}
-
-.toolbar .indicator + .primary {
-  margin-left: 6px;
 }
 
 /* ---------------------------------------------------------------------------

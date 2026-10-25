@@ -316,6 +316,13 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   const quality = useMemo(() => worklogQuality(monthWorklogs), [monthWorklogs]);
   const loggedToDate = monthWorklogs.filter((item) => item.date <= today).reduce((sum, item) => sum + item.seconds, 0);
   const toLog = normToDate - loggedToDate;
+  /** A duration for the indicators: the number big, the "h" unit small (decimal format). */
+  const hours = (seconds: number) => (
+    <>
+      {formatDuration(seconds, format) || "0"}
+      {format === "decimal" && <small>h</small>}
+    </>
+  );
 
   const rowById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
 
@@ -656,35 +663,40 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
           )}
         </div>
 
-        <div className="stats">
-          {month <= currentMonth() && (
-            <span title="Norm to date: working days so far (without absences) × daily norm">
-              Target <strong>{formatDuration(normToDate, format) || "0"}</strong>
+        {/* Indicators: caption on top, big value, optional line underneath */}
+        <div className="indicators">
+          <div className="indicator neutral" title="Working days so far this month (without absences) × daily norm">
+            <span className="indicatorCaption">Target to date</span>
+            <span className="indicatorValue">
+              {hours(month <= currentMonth() ? normToDate : 0)}
             </span>
-          )}
-        </div>
-
-        <div
-          className={["indicator", quality ? qualityClass(quality.percent) : ""].join(" ")}
-          title={
-            quality
-              ? `Logging quality: worklogs are entered on average ${quality.averageDelay.toFixed(1)} working day(s) after ` +
-                `their date (weighted by time, ${quality.count} worklogs this month).\n\nAverage delay:\n${qualityScaleText()}`
-              : `Logging quality: no worklogs this month yet.\n\nAverage delay:\n${qualityScaleText()}`
-          }
-        >
-          <span className="indicatorValue">{quality ? `${quality.percent}%` : "—"}</span>
-          <span className="indicatorLabel">{quality ? qualityMessage(quality.percent) : "Logging quality"}</span>
-        </div>
-        <div
-          className={["indicator", toLog > 0 ? "toLog" : "allLogged"].join(" ")}
-          title={`Norm to date ${formatDuration(normToDate, "jira") || "0h"} minus logged up to today ${formatDuration(loggedToDate, "jira") || "0h"}`}
-        >
-          <span className="indicatorValue">
-            {toLog > 0 ? formatDuration(toLog, format) : toLog < 0 ? `+${formatDuration(-toLog, format)}` : "0"}
-            {format === "decimal" && toLog !== 0 ? <small>h</small> : null}
-          </span>
-          <span className="indicatorLabel">{toLog > 0 ? "Left to log" : toLog < 0 ? "Logged over the norm" : "All logged"}</span>
+          </div>
+          <div className="indicator neutral" title="All working days of the month (without absences) × daily norm">
+            <span className="indicatorCaption">Month</span>
+            <span className="indicatorValue">{hours(workdays.length * normSeconds)}</span>
+          </div>
+          <div
+            className={["indicator", toLog > 0 ? "toLog" : "allLogged"].join(" ")}
+            title={`Target to date ${formatDuration(normToDate, "jira") || "0h"} minus posted up to today ${formatDuration(loggedToDate, "jira") || "0h"}`}
+          >
+            <span className="indicatorCaption">{toLog >= 0 ? "Left to post" : "Over target"}</span>
+            <span className="indicatorValue">{toLog < 0 ? <>+{hours(-toLog)}</> : hours(toLog)}</span>
+            {toLog <= 0 && <span className="indicatorLabel">{toLog === 0 ? "All posted" : "Ahead of target"}</span>}
+          </div>
+          <div
+            className={["indicator", quality ? qualityClass(quality.percent) : "neutral"].join(" ")}
+            title={
+              (quality
+                ? `Timeliness: how soon worklogs are posted after their date. On average ${quality.averageDelay.toFixed(1)} working day(s) later ` +
+                  `(weighted by time, ${quality.count} worklogs this month).`
+                : "Timeliness: how soon worklogs are posted after their date. No worklogs this month yet.") +
+              `\n\nAverage delay:\n${qualityScaleText()}`
+            }
+          >
+            <span className="indicatorCaption">Timeliness</span>
+            <span className="indicatorValue">{quality ? `${quality.percent}%` : "—"}</span>
+            {quality && <span className="indicatorLabel">{qualityMessage(quality.percent)}</span>}
+          </div>
         </div>
 
         <button className="primary" onClick={refresh} disabled={loading}>
