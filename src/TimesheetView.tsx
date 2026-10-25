@@ -803,11 +803,12 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                   data-tip={[row.issue.key, row.issue.issueType, row.issue.summary].filter(Boolean).join(" · ")}
                 >
                   <span className="summaryInner">
-                    {row.issue.typeIcon ? (
-                      <img className="typeIcon" src={row.issue.typeIcon} alt={row.issue.issueType || ""} />
-                    ) : (
-                      <span className="typeIcon placeholder" />
-                    )}
+                    {settings.showTypeIcons &&
+                      (row.issue.typeIcon ? (
+                        <img className="typeIcon" src={row.issue.typeIcon} alt={row.issue.issueType || ""} />
+                      ) : (
+                        <span className="typeIcon placeholder" />
+                      ))}
                     <span className="summaryText">{row.issue.summary}</span>
                   </span>
                 </td>

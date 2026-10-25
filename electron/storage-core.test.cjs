@@ -145,6 +145,12 @@ describe("storage-core", () => {
     expect(core.defaultData().settings.jiraConnections[0].clientField).toBe("customfield_10703");
   });
 
+  it("shows issue type icons unless switched off", () => {
+    expect(core.defaultData().settings.showTypeIcons).toBe(true);
+    expect(core.mergeDefaults({ version: 7, settings: {} }).settings.showTypeIcons).toBe(true);
+    expect(core.mergeDefaults({ version: 7, settings: { showTypeIcons: false } }).settings.showTypeIcons).toBe(false);
+  });
+
   it("has the default allocation categories and cleans edited ones", () => {
     const rules = core.defaultData().settings.allocationRules;
     expect(rules.map((rule) => rule.name)).toEqual(["Support", "Implementation", "SME", "Academy", "Apollo"]);

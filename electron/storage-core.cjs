@@ -95,6 +95,7 @@ function defaultData() {
       baseJql: DEFAULT_BASE_JQL,
       allFilter: { jql: "", free: false },
       askComment: true,
+      showTypeIcons: true,
       allocationRules: DEFAULT_ALLOCATION_RULES.map((rule) => ({ ...rule })),
       absences: { ...DEFAULT_ABSENCES },
       filters: DEFAULT_FILTERS.map((filter) => ({ ...filter })),
@@ -233,6 +234,7 @@ function mergeDefaults(data) {
       baseJql: String(settings.baseJql || "").trim() || DEFAULT_BASE_JQL,
       allFilter: normalizeAllFilter(settings.allFilter),
       askComment: settings.askComment !== false,
+      showTypeIcons: settings.showTypeIcons !== false,
       allocationRules: normalizeAllocationRules(settings.allocationRules),
       absences: normalizeAbsences(
         data && version < 6 && String(settings.absences?.jql || "").trim() === PREVIOUS_ABSENCES_JQL

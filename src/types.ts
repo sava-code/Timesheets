@@ -74,6 +74,8 @@ export interface Settings {
   allFilter: AllFilter;
   /** Ask for a comment in a window when a new worklog is entered */
   askComment: boolean;
+  /** Jira issue type icons before the summaries */
+  showTypeIcons: boolean;
   /** Worklogs allocation categories, checked in order */
   allocationRules: AllocationRule[];
   absences: AbsenceSettings;

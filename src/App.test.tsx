@@ -557,6 +557,23 @@ describe("Timesheet grid", () => {
     await waitFor(() => expect(screen.getByRole("region", { name: "Worklogs allocation" })).toHaveTextContent("Help desk"));
   });
 
+  it("switches the issue type icons off in Appearance", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByLabelText(issueLink("INT-15"));
+    expect(document.querySelectorAll("td.summaryCol .typeIcon").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Appearance" }));
+    const option = screen.getByLabelText("Show issue type icons");
+    expect(option).toBeChecked();
+    await user.click(option);
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    await screen.findByLabelText(issueLink("INT-15"));
+    expect(document.querySelectorAll("td.summaryCol .typeIcon")).toHaveLength(0);
+  });
+
   it("has a client field per Jira that follows the URL until changed", async () => {
     const user = userEvent.setup();
     render(<App />);

@@ -147,6 +147,7 @@ export function createDevApi(
       baseJql: 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"',
       allFilter: { jql: "", free: false },
       askComment: options.askComment !== false,
+      showTypeIcons: true,
       allocationRules: DEFAULT_ALLOCATION_RULES.map((rule) => ({ ...rule })),
       absences: {
         enabled: true,

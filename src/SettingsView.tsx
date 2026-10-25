@@ -836,6 +836,14 @@ export function SettingsView({ data, onSaved }: Props) {
                       )}
                     </span>
                   </label>
+                  <label className="check standalone">
+                    <input
+                      type="checkbox"
+                      checked={draft.showTypeIcons}
+                      onChange={(event) => setDraft({ ...draft, showTypeIcons: event.target.checked })}
+                    />
+                    Show issue type icons
+                  </label>
                 </div>
               </section>
             </>
