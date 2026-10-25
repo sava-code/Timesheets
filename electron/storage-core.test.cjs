@@ -36,21 +36,24 @@ describe("storage-core", () => {
     expect(data.settings.allFilter).toEqual({ jql: "", free: false });
   });
 
-  const DEFAULT_LOOK = { theme: "classic", tableFont: "segoe", tableFontSize: 12, backgroundColor: "" };
+  const DEFAULT_LOOK = { theme: "classic", tableFont: "system", tableFontSize: 12, backgroundColor: "" };
 
   it("defaults to the current look and moves files from older versions to it once", () => {
     expect(core.defaultData().settings).toMatchObject(DEFAULT_LOOK);
     for (const version of [1, 2]) {
       const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, backgroundColor: "" } });
       expect(old.settings).toMatchObject(DEFAULT_LOOK);
-      expect(old.version).toBe(7);
+      expect(old.version).toBe(8);
     }
     // From version 3 on, the user's choice is kept.
     const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" } });
     expect(chosen.settings).toMatchObject({ theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" });
     // Version 7 moves the old default system font to Segoe UI once; later choices stay.
-    expect(core.mergeDefaults({ version: 6, settings: { tableFont: "system" } }).settings.tableFont).toBe("segoe");
-    expect(core.mergeDefaults({ version: 7, settings: { tableFont: "system" } }).settings.tableFont).toBe("system");
+    // Version 8 moves Segoe UI (the 1.1–1.2 default) back to the system font once; later choices stay.
+    expect(core.mergeDefaults({ version: 6, settings: { tableFont: "system" } }).settings.tableFont).toBe("system");
+    expect(core.mergeDefaults({ version: 7, settings: { tableFont: "segoe" } }).settings.tableFont).toBe("system");
+    expect(core.mergeDefaults({ version: 7, settings: { tableFont: "inter" } }).settings.tableFont).toBe("inter");
+    expect(core.mergeDefaults({ version: 8, settings: { tableFont: "segoe" } }).settings.tableFont).toBe("segoe");
   });
 
   it("starts with the default free filters and adds them once to older settings", () => {

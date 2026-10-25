@@ -4,8 +4,8 @@
  */
 export const TABLE_FONTS: Array<{ id: string; label: string; stack: string }> = [
   // Segoe UI is built into Windows; elsewhere Microsoft's open-source look-alike Selawik is used (bundled).
-  { id: "segoe", label: "Segoe UI", stack: '"Segoe UI", "Selawik", ui-sans-serif, system-ui, sans-serif' },
   { id: "system", label: "System default", stack: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+  { id: "segoe", label: "Segoe UI", stack: '"Segoe UI", "Selawik", ui-sans-serif, system-ui, sans-serif' },
   { id: "arial", label: "Arial", stack: 'Arial, "Helvetica Neue", Helvetica, sans-serif' },
   { id: "inter", label: "Inter", stack: '"Inter", ui-sans-serif, system-ui, sans-serif' },
   { id: "fira-sans", label: "Fira Sans", stack: '"Fira Sans", ui-sans-serif, system-ui, sans-serif' },

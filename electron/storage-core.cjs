@@ -2,7 +2,7 @@
 
 const { DEFAULT_BASE_JQL } = require("./jira-core.cjs");
 
-const DATA_VERSION = 7;
+const DATA_VERSION = 8;
 
 // Worklogs allocation chart: categories checked in order, the first match wins, the rest is "Other".
 // A category matches an issue by type, by project (name or key) or by text in the summary.
@@ -53,7 +53,7 @@ const DEFAULT_FILTERS = [
 // Default look. Settings files from older versions are switched to it once (see mergeDefaults).
 const DEFAULT_APPEARANCE = {
   theme: "classic",
-  tableFont: "segoe",
+  tableFont: "system",
   tableFontSize: 12,
   // "" = the theme's own background (white in Classic). A custom colour applies to every theme.
   backgroundColor: ""
@@ -215,8 +215,9 @@ function mergeDefaults(data) {
   // Version 7: comment window on and Segoe UI as the table font by default; applied once.
   if (data && version < 7) {
     settings.askComment = true;
-    if (settings.tableFont === "system") settings.tableFont = "segoe";
   }
+  // Version 8: back to the system font by default (1.1–1.2 had switched it to Segoe UI); applied once.
+  if (data && version < 8 && settings.tableFont === "segoe") settings.tableFont = "system";
   // Up to version 4 the default white was stored as a custom colour, which also forced it on the dark theme.
   if (data && version < 5 && String(settings.backgroundColor).toLowerCase() === "#ffffff") settings.backgroundColor = "";
   const norm = Number(settings.dailyNormHours);
