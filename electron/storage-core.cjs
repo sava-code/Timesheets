@@ -70,6 +70,7 @@ function defaultData() {
       // The "All" chip. Empty JQL: issues with your worklogs this month (+ each source's extra JQL).
       baseJql: DEFAULT_BASE_JQL,
       allFilter: { jql: "", free: false },
+      askComment: false,
       absences: { ...DEFAULT_ABSENCES },
       filters: DEFAULT_FILTERS.map((filter) => ({ ...filter })),
       jiraConnections: [defaultConnection(0)]
@@ -176,6 +177,7 @@ function mergeDefaults(data) {
       backgroundColor: /^#[0-9a-f]{6}$/i.test(String(settings.backgroundColor)) ? String(settings.backgroundColor).toLowerCase() : "",
       baseJql: String(settings.baseJql || "").trim() || DEFAULT_BASE_JQL,
       allFilter: normalizeAllFilter(settings.allFilter),
+      askComment: settings.askComment === true,
       absences: normalizeAbsences(
         data && version < 6 && String(settings.absences?.jql || "").trim() === PREVIOUS_ABSENCES_JQL
           ? { ...settings.absences, jql: DEFAULT_ABSENCES.jql }

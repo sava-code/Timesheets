@@ -19,6 +19,13 @@ async function runJql(user: ReturnType<typeof userEvent.setup>, jql: string) {
   await user.type(box, "{Enter}");
 }
 
+/** Working days of the current month up to today (or the first ones, early in the month). */
+function workingDayKeys() {
+  const all = monthDays(currentMonth()).filter((day) => !day.isWeekend);
+  const past = all.filter((day) => day.key <= todayKey());
+  return (past.length >= 3 ? past : all).map((day) => day.key);
+}
+
 function cell(rowId: string, day: string) {
   const element = document.querySelector<HTMLElement>(`[data-cell="${rowId}|${day}"]`);
   if (!element) throw new Error(`cell ${rowId}|${day} not found`);
@@ -51,7 +58,7 @@ describe("Timesheet grid", () => {
     await user.click(target);
     await user.keyboard("1h 30m{Enter}");
     await waitFor(() => expect(cell("main:SUP-1101", day)).toHaveTextContent("1.5"));
-    expect(create).toHaveBeenCalledWith("main", { issueKey: "SUP-1101", date: day, seconds: 5400 });
+    expect(create).toHaveBeenCalledWith("main", { issueKey: "SUP-1101", date: day, seconds: 5400, comment: "" });
 
     await user.dblClick(cell("main:SUP-1101", day));
     const editor = within(cell("main:SUP-1101", day)).getByRole("textbox");
@@ -283,8 +290,11 @@ describe("Timesheet grid", () => {
     await screen.findByText("INT-15");
     // The demo has 3 absence working days: CAL-101 (2 days) and CAL-102 (1 day).
     const workdays = monthDays(currentMonth()).filter((day) => !day.isWeekend);
-    const normText = () => screen.getByText("Month norm").querySelector("strong")!.textContent;
-    expect(normText()).toBe(String((workdays.length - 3) * 8));
+    // "Target" = working days up to today, without absence days, × 8h.
+    const normText = () => screen.getByText("Target").querySelector("strong")!.textContent;
+    const pastDays = workdays.filter((day) => day.key <= todayKey());
+    const absentPast = [6, 7, 14].filter((index) => workdays[index].key <= todayKey()).length;
+    expect(normText()).toBe(String((pastDays.length - absentPast) * 8 || 0));
     const vacation = workdays[6].key;
     const header = document.querySelectorAll<HTMLElement>("thead tr.dayRow th.absent");
     expect(header).toHaveLength(3);
@@ -300,7 +310,7 @@ describe("Timesheet grid", () => {
     await user.click(screen.getByRole("button", { name: /save settings/i }));
     await screen.findByText("Settings saved.");
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
-    await waitFor(() => expect(normText()).toBe(String(workdays.length * 8)));
+    await waitFor(() => expect(normText()).toBe(String(pastDays.length * 8 || 0)));
     expect(document.querySelectorAll("th.absent")).toHaveLength(0);
   });
 
@@ -424,6 +434,60 @@ describe("Timesheet grid", () => {
     expect(indicators[0].title).toMatch(/up to 3 working days: 100%/);
     expect(indicators[0].querySelector(".indicatorValue")!.textContent).toMatch(/^(100|90|70|50|30|10)%$/);
     expect(indicators[1].querySelector(".indicatorLabel")!.textContent).toMatch(/Left to log|All logged|over the norm/);
+  });
+
+  it("asks for a comment on new worklogs when enabled, never on changes", async () => {
+    const user = userEvent.setup();
+    const api = window.timesheets;
+    const create = vi.spyOn(api, "createWorklog");
+    const update = vi.spyOn(api, "updateWorklog");
+    render(<App />);
+    await screen.findByText("INT-15");
+
+    // Off by default: no window.
+    await runJql(user, "key = SUP-1101");
+    await screen.findByText("SUP-1101");
+    const day = workingDayKey();
+    await user.click(cell("main:SUP-1101", day));
+    await user.keyboard("1{Enter}");
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    // Switch it on.
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Timesheet" }));
+    await user.click(screen.getByLabelText("Ask for a comment on new worklogs"));
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+
+    // New worklog: Save with a comment.
+    const next = workingDayKeys()[1];
+    await user.click(cell("main:SUP-1101", next));
+    await user.keyboard("2{Enter}");
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("SUP-1101");
+    await user.type(within(dialog).getByLabelText("Worklog comment"), "Investigated the export");
+    await user.click(within(dialog).getByRole("button", { name: "Save worklog" }));
+    await waitFor(() => expect(create).toHaveBeenLastCalledWith("main", expect.objectContaining({ seconds: 7200, comment: "Investigated the export" })));
+    await waitFor(() => expect(cell("main:SUP-1101", next)).toHaveTextContent("2"));
+
+    // Changing an existing worklog: no window.
+    await user.click(cell("main:SUP-1101", next));
+    await user.keyboard("3{Enter}");
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    // Cancel: nothing is created.
+    const third = workingDayKeys()[2];
+    const calls = create.mock.calls.length;
+    await user.click(cell("main:SUP-1101", third));
+    await user.keyboard("1{Enter}");
+    await screen.findByRole("dialog");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(create.mock.calls.length).toBe(calls);
+    expect(cell("main:SUP-1101", third)).toHaveTextContent("");
   });
 
   it("shows Forget next to the saved password", async () => {

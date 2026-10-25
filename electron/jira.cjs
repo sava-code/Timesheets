@@ -208,12 +208,11 @@ async function withTypeIcons(connection, issues) {
   return issues.map((issue) => ({ ...issue, typeIcon: icons.get(issue.typeIcon) || "" }));
 }
 
-async function createWorklog(connection, { issueKey, date, seconds, startTime }) {
-  const value = core.validateSeconds(seconds);
+async function createWorklog(connection, { issueKey, date, seconds, startTime, comment }) {
   const raw = await jiraRequest(
     connection,
     `/rest/api/${core.apiVersion(connection)}/issue/${encodeURIComponent(issueKey)}/worklog?adjustEstimate=leave&notifyUsers=false`,
-    { method: "POST", body: { started: core.jiraStarted(date, startTime), timeSpentSeconds: value } }
+    { method: "POST", body: core.newWorklogBody(connection, { date, startTime, seconds, comment }) }
   );
   return core.toWorklog(issueKey, raw);
 }

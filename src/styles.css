@@ -1475,3 +1475,90 @@ label.check.standalone {
 .toolbar .indicator + .primary {
   margin-left: 6px;
 }
+
+/* ---------------------------------------------------------------------------
+   Comment window for new worklogs
+   --------------------------------------------------------------------------- */
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(20, 23, 28, 0.45);
+}
+
+.modal {
+  width: min(520px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+}
+
+.modal h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.modalSubtitle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.modalSubtitle strong {
+  color: var(--text);
+}
+
+.modal textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 90px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+  color: inherit;
+}
+
+.modal textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.commentSuggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.commentSuggestions .chip {
+  font-size: 12px;
+  padding: 3px 10px;
+}
+
+.modalActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modalActions .hint {
+  margin-right: auto;
+}
+
+.modalActions .hint {
+  white-space: normal;
+  overflow: visible;
+}

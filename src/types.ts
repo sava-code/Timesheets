@@ -58,6 +58,8 @@ export interface Settings {
   /** JQL for the base list; {monthStart} and {monthEnd} are replaced with the month's dates. */
   baseJql: string;
   allFilter: AllFilter;
+  /** Ask for a comment in a window when a new worklog is entered */
+  askComment: boolean;
   absences: AbsenceSettings;
   filters: FilterGroup[];
   jiraConnections: JiraConnection[];
@@ -169,7 +171,7 @@ export interface TimesheetsApi {
   searchIssues: (jql: string) => Promise<SearchResult>;
   /** Which of the given issue keys (per source) match the JQL. */
   matchFilter: (jql: string, keysBySource: Record<string, string[]>) => Promise<FilterMatch>;
-  createWorklog: (sourceId: string, payload: { issueKey: string; date: string; seconds: number }) => Promise<Worklog>;
+  createWorklog: (sourceId: string, payload: { issueKey: string; date: string; seconds: number; comment?: string }) => Promise<Worklog>;
   updateWorklog: (
     sourceId: string,
     payload: { issueKey: string; worklogId: string; seconds: number; started?: string }

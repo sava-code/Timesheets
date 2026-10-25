@@ -112,6 +112,12 @@ describe("storage-core", () => {
     });
   });
 
+  it("does not ask for comments by default", () => {
+    expect(core.defaultData().settings.askComment).toBe(false);
+    expect(core.mergeDefaults({ version: 6, settings: { askComment: true } }).settings.askComment).toBe(true);
+    expect(core.mergeDefaults({ version: 6, settings: { askComment: "yes" } }).settings.askComment).toBe(false);
+  });
+
   it("defaults the base JQL and falls back to it when cleared", () => {
     const base = 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"';
     expect(core.defaultData().settings.baseJql).toBe(base);

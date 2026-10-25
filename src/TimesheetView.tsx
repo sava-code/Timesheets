@@ -92,6 +92,12 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   // Issues returned by the free JQL in use (search box or free filter).
   const [freeResult, setFreeResult] = useState<{ key: string; search: SearchResult } | null>(null);
   const lastSources = useRef<SourceRows[]>([]);
+  // Comment window for new worklogs (Settings > Timesheet > Ask for a comment).
+  const [commentRequest, setCommentRequest] = useState<{
+    title: string;
+    detail: string;
+    resolve: (comment: string | null) => void;
+  } | null>(null);
   // Hints in the table (elements with data-tip) appear after 1 second; native tooltips wait longer.
   const [tip, setTip] = useState<{ text: string; left: number; top: number; above: boolean } | null>(null);
   const tipTimer = useRef<number>();
@@ -419,6 +425,28 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
     return current;
   };
 
+  /** Resolves with the comment ("" = no comment) or null when the user cancels. */
+  const askForComment = (title: string, detail: string) =>
+    new Promise<string | null>((resolve) => setCommentRequest({ title, detail, resolve }));
+
+  const closeComment = (comment: string | null) => {
+    commentRequest?.resolve(comment);
+    setCommentRequest(null);
+    focusGrid();
+  };
+
+  // Your most used comments this month, offered as one-click choices in the comment window.
+  const recentComments = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const source of result?.sources || []) {
+      for (const worklog of source.worklogs) {
+        const text = worklog.comment.trim();
+        if (text) counts.set(text, (counts.get(text) || 0) + 1);
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([text]) => text);
+  }, [result]);
+
   const commit = async (cell: Cell, value: string) => {
     const row = rowById.get(cell.row);
     if (!row) return;
@@ -441,6 +469,19 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
       }
     }
 
+    let comment = "";
+    if (settings.askComment && ops.some((op) => op.kind === "create")) {
+      const answer = await askForComment(
+        `${row.issue.key} · ${shortDate(cell.day)} · ${formatDuration(parsed.seconds, "jira")}`,
+        row.issue.summary
+      );
+      if (answer === null) {
+        addLog("info", `${row.issue.key} · ${shortDate(cell.day)}: not logged (cancelled in the comment window)`);
+        return;
+      }
+      comment = answer;
+    }
+
     const id = cellId(cell);
     const { sourceId, key } = row.issue;
     setPending((set) => new Set(set).add(id));
@@ -448,7 +489,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
     try {
       for (const op of ops) {
         if (op.kind === "create") {
-          const created = await api().createWorklog(sourceId, { issueKey: key, date: cell.day, seconds: op.seconds });
+          const created = await api().createWorklog(sourceId, { issueKey: key, date: cell.day, seconds: op.seconds, comment });
           setResult(
             (current) =>
               current &&
@@ -616,17 +657,11 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
         </div>
 
         <div className="stats">
-          <span>
-            Logged <strong>{formatDuration(monthTotal, format) || "0"}</strong>
-          </span>
           {month <= currentMonth() && (
-            <span>
-              Norm to date <strong>{formatDuration(normToDate, format) || "0"}</strong>
+            <span title="Norm to date: working days so far (without absences) × daily norm">
+              Target <strong>{formatDuration(normToDate, format) || "0"}</strong>
             </span>
           )}
-          <span>
-            Month norm <strong>{formatDuration(workdays.length * normSeconds, format)}</strong>
-          </span>
         </div>
 
         <div
@@ -876,6 +911,17 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
         </div>
       )}
 
+      {commentRequest && (
+        <CommentDialog
+          title={commentRequest.title}
+          detail={commentRequest.detail}
+          suggestions={recentComments}
+          onSave={(text) => closeComment(text)}
+          onSkip={() => closeComment("")}
+          onCancel={() => closeComment(null)}
+        />
+      )}
+
       <section className="bottomBar">
         <p className="hint">Double-click or type in a cell · 1.5 · 1h 30m · 90m · Delete clears</p>
         <button className="ghost logToggle" onClick={() => setLogOpen(!logOpen)}>
@@ -907,5 +953,86 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
         </section>
       )}
     </main>
+  );
+}
+
+/** Asks for a comment for a new worklog. Ctrl/Cmd+Enter saves, Esc cancels. */
+function CommentDialog({
+  title,
+  detail,
+  suggestions,
+  onSave,
+  onSkip,
+  onCancel
+}: {
+  title: string;
+  detail: string;
+  suggestions: string[];
+  onSave: (comment: string) => void;
+  onSkip: () => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState("");
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => textRef.current?.focus(), []);
+
+  return (
+    <div
+      className="modalBackdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="comment-title"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onCancel();
+          } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            onSave(text);
+          }
+        }}
+      >
+        <h3 id="comment-title">Worklog comment</h3>
+        <p className="modalSubtitle">
+          <strong>{title}</strong>
+          <span>{detail}</span>
+        </p>
+        <textarea
+          ref={textRef}
+          value={text}
+          rows={4}
+          aria-label="Worklog comment"
+          placeholder="What did you work on?"
+          onChange={(event) => setText(event.target.value)}
+        />
+        {suggestions.length > 0 && (
+          <div className="commentSuggestions" aria-label="Recent comments">
+            {suggestions.map((item) => (
+              <button key={item} type="button" className="chip" title={item} onClick={() => setText(item)}>
+                {item.length > 40 ? `${item.slice(0, 40)}…` : item}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="modalActions">
+          <span className="hint">Ctrl/⌘ + Enter to save · Esc to cancel</span>
+          <button type="button" className="ghost" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="secondary" onClick={onSkip}>
+            Skip comment
+          </button>
+          <button type="button" className="primary" onClick={() => onSave(text)}>
+            Save worklog
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

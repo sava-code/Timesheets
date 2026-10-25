@@ -627,6 +627,14 @@ export function SettingsView({ data, onSaved }: Props) {
                     />
                     Always show weekends
                   </label>
+                  <label className="check standalone">
+                    <input
+                      type="checkbox"
+                      checked={draft.askComment}
+                      onChange={(event) => setDraft({ ...draft, askComment: event.target.checked })}
+                    />
+                    Ask for a comment on new worklogs
+                  </label>
                 </div>
               </section>
             </>

@@ -121,6 +121,26 @@ function commentText(comment) {
   return parts.join("").trim();
 }
 
+/** A comment in Atlassian Document Format (Jira Cloud v3), one paragraph per line (from TimeCollector_Next). */
+function adfComment(text) {
+  return {
+    type: "doc",
+    version: 1,
+    content: String(text || "")
+      .replace(/\r\n?/g, "\n")
+      .split("\n")
+      .map((line) => ({ type: "paragraph", content: line ? [{ type: "text", text: line }] : [] }))
+  };
+}
+
+/** Body for creating a worklog; the comment is plain text on Server/DC (v2) and ADF on Cloud (v3). */
+function newWorklogBody(connection, { date, startTime, seconds, comment }) {
+  const body = { started: jiraStarted(date, startTime), timeSpentSeconds: validateSeconds(seconds) };
+  const text = String(comment || "").trim();
+  if (text) body.comment = apiVersion(connection) === "3" ? adfComment(text) : text;
+  return body;
+}
+
 function toWorklog(issueKey, raw) {
   return {
     id: String(raw.id),
@@ -215,6 +235,8 @@ async function mapLimit(items, limit, worker) {
 
 module.exports = {
   DEFAULT_BASE_JQL,
+  adfComment,
+  newWorklogBody,
   apiVersion,
   isTrustedIconUrl,
   fieldDate,

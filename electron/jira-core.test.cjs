@@ -54,6 +54,14 @@ describe("jira-core", () => {
     expect(core.isTrustedIconUrl(connection, "not a url")).toBe(false);
   });
 
+  it("adds the comment to a new worklog: plain text on Server, ADF on Cloud", () => {
+    const server = core.newWorklogBody({ apiVersion: "2" }, { date: "2026-10-05", startTime: "09:00", seconds: 5400, comment: " Call with client " });
+    expect(server).toMatchObject({ timeSpentSeconds: 5400, comment: "Call with client" });
+    const cloud = core.newWorklogBody({ apiVersion: "3" }, { date: "2026-10-05", startTime: "09:00", seconds: 5400, comment: "Line 1\nLine 2" });
+    expect(cloud.comment.content.map((p) => p.content[0].text)).toEqual(["Line 1", "Line 2"]);
+    expect(core.newWorklogBody({ apiVersion: "2" }, { date: "2026-10-05", startTime: "09:00", seconds: 5400, comment: "  " })).not.toHaveProperty("comment");
+  });
+
   it("builds auth headers", () => {
     expect(core.buildAuthHeader({ authType: "bearer" }, "abc")).toBe("Bearer abc");
     expect(core.buildAuthHeader({ authType: "basic", email: "u" }, "p")).toBe(`Basic ${Buffer.from("u:p").toString("base64")}`);

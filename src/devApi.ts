@@ -122,6 +122,7 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean; latestVersi
       backgroundColor: "",
       baseJql: 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"',
       allFilter: { jql: "", free: false },
+      askComment: false,
       absences: {
         enabled: true,
         sourceId: "",
@@ -242,7 +243,7 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean; latestVersi
         date: payload.date,
         started: `${payload.date}T09:00:00.000+0200`,
         seconds: payload.seconds,
-        comment: "",
+        comment: payload.comment?.trim() || "",
         created: new Date().toISOString()
       };
       const bySource = store(payload.date.slice(0, 7));
