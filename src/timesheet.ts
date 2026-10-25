@@ -1,4 +1,4 @@
-import type { Absence, Issue, MonthResult, SearchResult, Worklog } from "./types";
+import type { Absence, AllocationRule, Issue, MonthResult, SearchResult, Worklog } from "./types";
 import { monthDays, type MonthDay } from "./time";
 
 export interface Row {
@@ -303,4 +303,69 @@ export function updateSourceWorklogs(
       source.sourceId === sourceId ? { ...source, worklogs: change(source.worklogs) } : source
     )
   };
+}
+
+// ---------------------------------------------------------------------------
+// Worklogs allocation: share of the month's logged time per category.
+// ---------------------------------------------------------------------------
+
+/** Same as DEFAULT_ALLOCATION_RULES in electron/storage-core.cjs. */
+export const DEFAULT_ALLOCATION_RULES: AllocationRule[] = [
+  { id: "support", name: "Support", types: "Support Request", projects: "Support Infrastructure, Customer Upgrade", summary: "" },
+  {
+    id: "implementation",
+    name: "Implementation",
+    types: "",
+    projects:
+      "Project Handover, BKNN, Custom Development, Customer Projects, MRJ, Nativa Core Team, RPC Core Team, NETS Core Team, Sberbank",
+    summary: ""
+  },
+  { id: "sme", name: "SME", types: "", projects: "Business Analysis, Worklogs from OWS JIRA, OpenWay Vendor Support", summary: "SME" },
+  { id: "academy", name: "Academy", types: "", projects: "OW ACADEMY", summary: "" },
+  { id: "apollo", name: "Apollo", types: "", projects: "Apollo", summary: "" }
+];
+
+export interface AllocationShare {
+  name: string;
+  seconds: number;
+  percent: number;
+}
+
+const listOf = (text: string) =>
+  text
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+/** The first rule the issue matches (issue type, project name or key, or text in the summary); otherwise "Other". */
+export function allocationCategory(issue: Issue | undefined, rules: AllocationRule[]): string {
+  if (!issue) return "Other";
+  const type = (issue.issueType || "").toLowerCase();
+  const projects = [issue.projectName || "", issue.projectKey || ""].map((value) => value.toLowerCase());
+  const summary = (issue.summary || "").toLowerCase();
+  for (const rule of rules) {
+    if (listOf(rule.types).includes(type) && type) return rule.name;
+    if (listOf(rule.projects).some((project) => projects.includes(project))) return rule.name;
+    if (listOf(rule.summary).some((text) => summary.includes(text))) return rule.name;
+  }
+  return "Other";
+}
+
+/** Shares of all your worklogs of the month by category, largest first. */
+export function worklogAllocation(result: MonthResult | null, rules: AllocationRule[]): AllocationShare[] {
+  if (!result) return [];
+  const totals = new Map<string, number>();
+  for (const source of result.sources) {
+    const issues = new Map(source.issues.map((issue) => [issue.key, issue]));
+    for (const worklog of source.worklogs) {
+      const name = allocationCategory(issues.get(worklog.issueKey), rules);
+      totals.set(name, (totals.get(name) || 0) + worklog.seconds);
+    }
+  }
+  const all = [...totals.values()].reduce((sum, seconds) => sum + seconds, 0);
+  if (!all) return [];
+  return [...totals.entries()]
+    .filter(([, seconds]) => seconds > 0)
+    .map(([name, seconds]) => ({ name, seconds, percent: (seconds / all) * 100 }))
+    .sort((a, b) => b.seconds - a.seconds || a.name.localeCompare(b.name));
 }

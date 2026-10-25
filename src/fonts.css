@@ -11,3 +11,21 @@
 @import "@fontsource/space-mono/400.css";
 @import "@fontsource/space-mono/700.css";
 @import "@fontsource/questrial/400.css";
+
+/* Selawik: Microsoft's open-source replacement for Segoe UI (SIL OFL 1.1, see assets/fonts/selawik).
+   Used for the "Segoe UI" table font where Segoe UI itself isn't installed (macOS, Linux). */
+@font-face {
+  font-family: "Selawik";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/selawik/selawk.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Selawik";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/selawik/selawkb.woff2") format("woff2");
+}

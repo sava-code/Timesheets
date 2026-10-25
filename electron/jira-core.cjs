@@ -162,6 +162,7 @@ function toIssue(connection, raw) {
     key: raw.key,
     summary: fields.summary || raw.key,
     projectKey: fields.project?.key || String(raw.key).split("-")[0],
+    projectName: fields.project?.name || "",
     status: fields.status?.name || "",
     url: `${normalizeBaseUrl(connection.baseUrl)}/browse/${raw.key}`,
     issueType: fields.issuetype?.name || "",

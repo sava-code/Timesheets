@@ -221,18 +221,17 @@ button:focus-visible {
 /* Timesheet */
 
 .timesheet {
-  /* Table geometry. Key, Total and the day columns have fixed widths; Summary takes what is left
+  /* Table geometry. Link, Total and the day columns have fixed widths; Summary takes what is left
      (--days = number of visible days), never below a readable minimum.
      --grid-space is the measured inner width of the table frame (without its scrollbar); until it is
      measured, the window width minus page padding and frame is used. 1px absorbs rounding. */
   --u: var(--grid-font-size, 14px);
-  /* --key-fit: measured width of the longest key / source name on screen (set by the app) */
-  --key-w: var(--key-fit, calc(var(--u) * 7.85));
+  --link-w: calc(var(--u) * 2.4);
   --total-w: calc(var(--u) * 4.6);
   --day-w: calc(var(--u) * 3.3);
   --summary-w: max(
     calc(var(--u) * 13),
-    calc(var(--grid-space, calc(100vw - 42px)) - 1px - var(--key-w) - var(--total-w) - var(--days, 23) * var(--day-w))
+    calc(var(--grid-space, calc(100vw - 42px)) - 1px - var(--link-w) - var(--total-w) - var(--days, 23) * var(--day-w))
   );
   flex: 1;
   min-height: 0;
@@ -286,7 +285,7 @@ button:focus-visible {
   --control-h: 32px;
   display: grid;
   grid-template-columns:
-    minmax(calc(1px + var(--key-w) + var(--summary-w)), max-content)
+    minmax(calc(var(--link-w) + var(--summary-w)), max-content)
     minmax(var(--search-width), 1fr)
     auto;
   align-items: center;
@@ -418,19 +417,33 @@ button:focus-visible {
   color: var(--text);
 }
 
-/* Frozen columns, left to right: Summary, Key, Total */
-.grid .keyCol {
+/* Frozen columns, left to right: Link, Summary, Total */
+.grid .linkCol {
   position: sticky;
-  left: var(--summary-w);
+  left: 0;
   z-index: 1;
-  width: var(--key-w);
-  min-width: var(--key-w);
-  text-align: left;
+  width: var(--link-w);
+  min-width: var(--link-w);
+  max-width: var(--link-w);
+  padding: 0;
+  text-align: center;
+}
+
+.issueLink {
+  display: inline-grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--muted);
+}
+
+.issueLink:hover {
+  color: var(--accent);
 }
 
 .grid .summaryCol {
   position: sticky;
-  left: 0;
+  left: var(--link-w);
   z-index: 1;
   width: var(--summary-w);
   min-width: var(--summary-w);
@@ -438,7 +451,7 @@ button:focus-visible {
   text-align: left;
 }
 
-.grid thead .keyCol,
+.grid thead .linkCol,
 .grid thead .summaryCol,
 .grid thead .totalCol {
   z-index: 3;
@@ -490,41 +503,10 @@ tr:hover .unpin {
   opacity: 1;
 }
 
-.keyCol a {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: inherit; /* follows the table's bold setting */
-}
-
-.keyCol a:hover {
-  text-decoration: underline;
-}
-
-/* Long keys and source names are cut with "…" so the Key column keeps its width */
-.grid td.keyCol,
-.grid .totalCol {
-  max-width: var(--key-w);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .grid .totalCol {
   max-width: var(--total-w);
-}
-
-.keyCol a,
-.keyCol .source {
-  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.keyCol .source {
-  display: block;
-  font-size: 0.72em;
-  line-height: 1;
-  color: var(--muted);
-  margin-top: -0.2em;
 }
 
 .grid .dayCol {
@@ -576,10 +558,10 @@ tr:hover .unpin {
   background: var(--danger-soft);
 }
 
-/* Right after Summary and frozen with Key and Summary; the thick line separates them from the days. */
+/* Right after Summary and frozen with Link and Summary. */
 .grid .totalCol {
   position: sticky;
-  left: calc(var(--key-w) + var(--summary-w));
+  left: calc(var(--link-w) + var(--summary-w));
   z-index: 1;
   width: var(--total-w);
   min-width: var(--total-w);
@@ -1132,7 +1114,7 @@ label.check.standalone {
 }
 
 /* Same size for the "Key", "Summary", "Total" labels and the "Total · N issues" label */
-.gridWrap .grid thead .keyCol,
+.gridWrap .grid thead .linkCol,
 .gridWrap .grid thead .summaryCol,
 .gridWrap .grid thead .totalCol {
   font-size: 1em;
@@ -1210,7 +1192,7 @@ label.check.standalone {
   box-shadow: inset 0 0 0 1px var(--selected);
 }
 
-[data-theme="classic"] .keyCol a {
+[data-theme="classic"] .issueLink:hover {
   color: #0000ee;
 }
 
@@ -1414,7 +1396,7 @@ label.check.standalone {
 }
 
 /* ---------------------------------------------------------------------------
-   Indicators next to Refresh: Target to date, Month, Left to post, Timeliness.
+   Indicators next to Refresh: Due, Month, Left to post, Timeliness.
    Same size for all; caption on top, value, optional line underneath.
    --------------------------------------------------------------------------- */
 
@@ -1586,4 +1568,154 @@ label.check.standalone {
 .modalActions .hint {
   white-space: normal;
   overflow: visible;
+}
+
+/* ---------------------------------------------------------------------------
+   Table lines and text (light themes): text #333333, grid #E7E7E7, 1px everywhere,
+   no frame around the table.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --grid-line: #e7e7e7;
+  --grid-text: #333333;
+}
+
+:root[data-theme="dark"] {
+  --grid-line: var(--border);
+  --grid-text: var(--text);
+}
+
+:root .gridWrap {
+  border: 0;
+  border-radius: 0;
+}
+
+:root .gridWrap .grid tbody td {
+  color: var(--grid-text);
+  border-style: solid;
+  border-color: var(--grid-line);
+  border-width: 0 1px 1px 0;
+}
+
+:root .gridWrap .grid tbody td:first-child {
+  border-left-width: 1px;
+}
+
+:root .gridWrap .grid .totalCol,
+:root .gridWrap .grid thead th {
+  border-right-width: 1px;
+}
+
+:root .gridWrap .grid thead th {
+  border-bottom-width: 1px;
+}
+
+/* Indicator captions: lighter */
+.indicatorCaption {
+  font-weight: 500;
+  color: color-mix(in srgb, var(--muted) 75%, var(--bg));
+}
+
+/* Each standalone checkbox in Settings takes a full row */
+.formGrid label.check.standalone {
+  grid-column: 1 / -1;
+  white-space: nowrap;
+}
+
+/* Worklogs allocation under the table */
+.allocation {
+  flex: none;
+  padding: 10px 0 2px;
+}
+
+.allocationTitle {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--muted) 75%, var(--bg));
+}
+
+.allocationBar {
+  display: flex;
+  height: 26px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+
+.allocationPart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2px;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.allocationPart + .allocationPart {
+  border-left: 1px solid var(--bg);
+}
+
+.allocationLabel {
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.allocationLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.allocationLegend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.allocationLegend b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.allocationLegend .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* Settings → Allocation */
+.panelActions {
+  display: flex;
+  gap: 8px;
+}
+
+.ruleRow {
+  display: grid;
+  grid-template-columns: 130px 1fr 2fr 120px 88px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ruleHead {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ruleButtons {
+  display: flex;
+  gap: 2px;
 }

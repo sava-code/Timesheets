@@ -2,7 +2,25 @@
 
 const { DEFAULT_BASE_JQL } = require("./jira-core.cjs");
 
-const DATA_VERSION = 6;
+const DATA_VERSION = 7;
+
+// Worklogs allocation chart: categories checked in order, the first match wins, the rest is "Other".
+// A category matches an issue by type, by project (name or key) or by text in the summary.
+// Each list is comma-separated and case-insensitive.
+const DEFAULT_ALLOCATION_RULES = [
+  { id: "support", name: "Support", types: "Support Request", projects: "Support Infrastructure, Customer Upgrade", summary: "" },
+  {
+    id: "implementation",
+    name: "Implementation",
+    types: "",
+    projects:
+      "Project Handover, BKNN, Custom Development, Customer Projects, MRJ, Nativa Core Team, RPC Core Team, NETS Core Team, Sberbank",
+    summary: ""
+  },
+  { id: "sme", name: "SME", types: "", projects: "Business Analysis, Worklogs from OWS JIRA, OpenWay Vendor Support", summary: "SME" },
+  { id: "academy", name: "Academy", types: "", projects: "OW ACADEMY", summary: "" },
+  { id: "apollo", name: "Apollo", types: "", projects: "Apollo", summary: "" }
+];
 
 // Absences (vacation, sick leave...) registered as Jira issues; their days are left out of the norm.
 const DEFAULT_ABSENCES = {
@@ -35,7 +53,7 @@ const DEFAULT_FILTERS = [
 // Default look. Settings files from older versions are switched to it once (see mergeDefaults).
 const DEFAULT_APPEARANCE = {
   theme: "classic",
-  tableFont: "system",
+  tableFont: "segoe",
   tableFontSize: 12,
   // "" = the theme's own background (white in Classic). A custom colour applies to every theme.
   backgroundColor: ""
@@ -70,7 +88,8 @@ function defaultData() {
       // The "All" chip. Empty JQL: issues with your worklogs this month (+ each source's extra JQL).
       baseJql: DEFAULT_BASE_JQL,
       allFilter: { jql: "", free: false },
-      askComment: false,
+      askComment: true,
+      allocationRules: DEFAULT_ALLOCATION_RULES.map((rule) => ({ ...rule })),
       absences: { ...DEFAULT_ABSENCES },
       filters: DEFAULT_FILTERS.map((filter) => ({ ...filter })),
       jiraConnections: [defaultConnection(0)]
@@ -120,6 +139,26 @@ function normalizeAbsences(value) {
   };
 }
 
+function normalizeAllocationRules(rules) {
+  if (!Array.isArray(rules)) return DEFAULT_ALLOCATION_RULES.map((rule) => ({ ...rule }));
+  const list = (value) =>
+    String(value || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .join(", ");
+  // Categories without a name are dropped.
+  return rules
+    .filter((rule) => rule && typeof rule === "object" && String(rule.name || "").trim())
+    .map((rule) => ({
+      id: String(rule.id || makeId("category")),
+      name: String(rule.name).trim(),
+      types: list(rule.types),
+      projects: list(rule.projects),
+      summary: list(rule.summary)
+    }));
+}
+
 function normalizeAllFilter(filter) {
   return { jql: String(filter?.jql || "").trim(), free: filter?.free === true };
 }
@@ -161,6 +200,11 @@ function mergeDefaults(data) {
   // Older versions had a different default look; switch their settings files to the current one once.
   const version = Number(data?.version) || 0;
   if (data && version < 3) Object.assign(settings, DEFAULT_APPEARANCE);
+  // Version 7: comment window on and Segoe UI as the table font by default; applied once.
+  if (data && version < 7) {
+    settings.askComment = true;
+    if (settings.tableFont === "system") settings.tableFont = "segoe";
+  }
   // Up to version 4 the default white was stored as a custom colour, which also forced it on the dark theme.
   if (data && version < 5 && String(settings.backgroundColor).toLowerCase() === "#ffffff") settings.backgroundColor = "";
   const norm = Number(settings.dailyNormHours);
@@ -177,7 +221,8 @@ function mergeDefaults(data) {
       backgroundColor: /^#[0-9a-f]{6}$/i.test(String(settings.backgroundColor)) ? String(settings.backgroundColor).toLowerCase() : "",
       baseJql: String(settings.baseJql || "").trim() || DEFAULT_BASE_JQL,
       allFilter: normalizeAllFilter(settings.allFilter),
-      askComment: settings.askComment === true,
+      askComment: settings.askComment !== false,
+      allocationRules: normalizeAllocationRules(settings.allocationRules),
       absences: normalizeAbsences(
         data && version < 6 && String(settings.absences?.jql || "").trim() === PREVIOUS_ABSENCES_JQL
           ? { ...settings.absences, jql: DEFAULT_ABSENCES.jql }

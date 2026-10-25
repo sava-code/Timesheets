@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   CalendarDays,
+  ChartPie,
   CheckCircle2,
   Download,
   ExternalLink,
@@ -19,10 +22,11 @@ import {
   XCircle
 } from "lucide-react";
 import { api, errorText } from "./api";
-import type { AppData, AppInfo, FilterGroup, JiraConnection, Settings, Theme, UpdateStatus } from "./types";
+import type { AllocationRule, AppData, AppInfo, FilterGroup, JiraConnection, Settings, Theme, UpdateStatus } from "./types";
 import appIcon from "./assets/icon.svg";
 import { applyTheme, themeBackground } from "./theme";
 import { TABLE_FONT_SIZES, TABLE_FONTS, tableFontStack } from "./fonts";
+import { DEFAULT_ALLOCATION_RULES } from "./timesheet";
 
 interface Props {
   data: AppData;
@@ -31,13 +35,14 @@ interface Props {
 
 type TestState = { status: "running" } | { status: "ok"; text: string } | { status: "error"; text: string };
 
-type SettingsTab = "jira" | "filters" | "absences" | "timesheet" | "appearance" | "about";
+type SettingsTab = "jira" | "filters" | "absences" | "timesheet" | "allocation" | "appearance" | "about";
 
 const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: typeof Server }> = [
   { id: "jira", label: "Jira sources", icon: Server },
   { id: "filters", label: "Filters", icon: Filter },
   { id: "absences", label: "Absences", icon: Plane },
   { id: "timesheet", label: "Timesheet", icon: CalendarDays },
+  { id: "allocation", label: "Allocation", icon: ChartPie },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "about", label: "About & updates", icon: Info }
 ];
@@ -182,6 +187,20 @@ export function SettingsView({ data, onSaved }: Props) {
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
   };
+
+  const patchRule = (id: string, patch: Partial<AllocationRule>) =>
+    setDraft((current) => ({
+      ...current,
+      allocationRules: current.allocationRules.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule))
+    }));
+
+  const moveRule = (index: number, step: number) =>
+    setDraft((current) => {
+      const rules = [...current.allocationRules];
+      const [rule] = rules.splice(index, 1);
+      rules.splice(index + step, 0, rule);
+      return { ...current, allocationRules: rules };
+    });
 
   const patchFilter = (id: string, patch: Partial<FilterGroup>) => {
     setDraft((current) => ({
@@ -517,6 +536,107 @@ export function SettingsView({ data, onSaved }: Props) {
               </section>
             </>
           )}
+          {tab === "allocation" && (
+            <>
+              <section className="panel">
+                <div className="panelHead">
+                  <div>
+                    <h3>Worklogs allocation</h3>
+                    <p>
+                      Categories for the chart under the timesheet. Each worklog of the month goes to the first category its
+                      issue matches: by issue type, by project (name or key) or by text in the summary. Lists are
+                      comma-separated and not case-sensitive. Everything else is <strong>Other</strong>.
+                    </p>
+                  </div>
+                  <div className="panelActions">
+                    <button
+                      className="secondary"
+                      title="Back to the default categories"
+                      onClick={() => setDraft({ ...draft, allocationRules: DEFAULT_ALLOCATION_RULES.map((rule) => ({ ...rule })) })}
+                    >
+                      <RotateCcw size={14} /> Reset
+                    </button>
+                    <button
+                      className="secondary"
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          allocationRules: [
+                            ...current.allocationRules,
+                            { id: newId("category"), name: "", types: "", projects: "", summary: "" }
+                          ]
+                        }))
+                      }
+                    >
+                      <Plus size={15} /> Add category
+                    </button>
+                  </div>
+                </div>
+                <div className="ruleRow ruleHead" aria-hidden="true">
+                  <span>Category</span>
+                  <span>Issue types</span>
+                  <span>Projects</span>
+                  <span>Summary contains</span>
+                  <span />
+                </div>
+                {draft.allocationRules.map((rule, index) => (
+                  <div className="ruleRow" key={rule.id} data-rule-row>
+                    <input
+                      value={rule.name}
+                      placeholder="Name"
+                      aria-label={`Category name ${index + 1}`}
+                      onChange={(event) => patchRule(rule.id, { name: event.target.value })}
+                    />
+                    <input
+                      value={rule.types}
+                      placeholder="e.g. Support Request"
+                      aria-label={`Issue types for ${rule.name || "category"}`}
+                      onChange={(event) => patchRule(rule.id, { types: event.target.value })}
+                    />
+                    <input
+                      value={rule.projects}
+                      placeholder="e.g. Apollo, SUP"
+                      aria-label={`Projects for ${rule.name || "category"}`}
+                      onChange={(event) => patchRule(rule.id, { projects: event.target.value })}
+                    />
+                    <input
+                      value={rule.summary}
+                      placeholder="e.g. SME"
+                      aria-label={`Summary text for ${rule.name || "category"}`}
+                      onChange={(event) => patchRule(rule.id, { summary: event.target.value })}
+                    />
+                    <span className="ruleButtons">
+                      <button className="icon" title="Move up" aria-label={`Move ${rule.name || "category"} up`} disabled={index === 0} onClick={() => moveRule(index, -1)}>
+                        <ArrowUp size={14} />
+                      </button>
+                      <button
+                        className="icon"
+                        title="Move down"
+                        aria-label={`Move ${rule.name || "category"} down`}
+                        disabled={index === draft.allocationRules.length - 1}
+                        onClick={() => moveRule(index, 1)}
+                      >
+                        <ArrowDown size={14} />
+                      </button>
+                      <button
+                        className="icon danger"
+                        title="Remove category"
+                        aria-label={`Remove ${rule.name || "category"}`}
+                        onClick={() =>
+                          setDraft((current) => ({
+                            ...current,
+                            allocationRules: current.allocationRules.filter((item) => item.id !== rule.id)
+                          }))
+                        }
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </section>
+            </>
+          )}
           {tab === "absences" && (
             <>
               <section className="panel">
@@ -675,7 +795,7 @@ export function SettingsView({ data, onSaved }: Props) {
                     >
                       {TABLE_FONT_SIZES.map((size) => (
                         <option key={size} value={size}>
-                          {size}px{size === 12 ? " (original)" : ""}
+                          {size}px
                         </option>
                       ))}
                     </select>

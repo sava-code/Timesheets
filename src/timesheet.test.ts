@@ -7,6 +7,9 @@ import {
   workingDaysBetween,
   worklogQuality,
   absenceDays,
+  allocationCategory,
+  DEFAULT_ALLOCATION_RULES,
+  worklogAllocation,
   baseSources,
   buildRows,
   dayTotals,
@@ -247,5 +250,49 @@ describe("updateSourceWorklogs", () => {
     const next = updateSourceWorklogs(result, "b", () => []);
     expect(next.sources[1].worklogs).toEqual([]);
     expect(next.sources[0]).toBe(result.sources[0]);
+  });
+});
+
+describe("worklog allocation", () => {
+  const rules = DEFAULT_ALLOCATION_RULES;
+  const of = (fields: Partial<ReturnType<typeof issue>> & { issueType?: string; projectName?: string }) =>
+    allocationCategory({ ...issue("a", "X-1"), ...fields }, rules);
+
+  it("puts an issue in the first category it matches", () => {
+    expect(of({ issueType: "Support Request", projectName: "Apollo" })).toBe("Support");
+    expect(of({ projectName: "Customer Upgrade" })).toBe("Support");
+    expect(of({ projectName: "nets core team" })).toBe("Implementation");
+    expect(of({ projectName: "Business Analysis" })).toBe("SME");
+    expect(of({ projectName: "Internal", summary: "SME review of the export" })).toBe("SME");
+    expect(of({ projectName: "OW ACADEMY" })).toBe("Academy");
+    expect(of({ projectName: "Apollo" })).toBe("Apollo");
+    expect(of({ projectName: "Internal", summary: "Team meeting" })).toBe("Other");
+    // Project keys work too.
+    expect(allocationCategory({ ...issue("a", "APL-1") }, [{ id: "x", name: "Apollo", types: "", projects: "APL", summary: "" }])).toBe("Apollo");
+    expect(allocationCategory(undefined, rules)).toBe("Other");
+  });
+
+  it("splits all worklogs of the month by category, largest first", () => {
+    const month: MonthResult = {
+      ...result,
+      sources: [
+        {
+          ...result.sources[0],
+          issues: [
+            { ...issue("a", "SUP-10"), projectName: "Support Infrastructure" },
+            { ...issue("a", "SUP-9"), projectName: "Apollo" },
+            { ...issue("a", "INT-1"), projectName: "Internal" }
+          ]
+        },
+        result.sources[1]
+      ]
+    };
+    // a: SUP-10 2h Support, SUP-9 1.5h Apollo; b: SUP-9 15m without a project -> Other.
+    expect(worklogAllocation(month, rules).map((share) => [share.name, share.seconds, Math.round(share.percent * 100) / 100])).toEqual([
+      ["Support", 7200, 53.33],
+      ["Apollo", 5400, 40],
+      ["Other", 900, 6.67]
+    ]);
+    expect(worklogAllocation(null, rules)).toEqual([]);
   });
 });

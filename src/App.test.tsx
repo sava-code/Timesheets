@@ -6,6 +6,9 @@ import { createDevApi } from "./devApi";
 import { currentMonth, monthDays, todayKey } from "./time";
 
 // Pick a working day of the current month that is not in the future, so the demo has data around it.
+/** The paper clip link of an issue row, e.g. "Open INT-15 in Demo Jira". */
+const issueLink = (key: string) => new RegExp(`^Open ${key} in `);
+
 function workingDayKey() {
   const days = monthDays(currentMonth()).filter((day) => !day.isWeekend && day.key <= todayKey());
   return (days[0] || monthDays(currentMonth()).find((day) => !day.isWeekend)!).key;
@@ -42,7 +45,8 @@ function cell(rowId: string, day: string) {
 
 describe("Timesheet grid", () => {
   beforeEach(() => {
-    window.timesheets = createDevApi();
+    // Most tests edit cells without the comment window; its own test turns it back on.
+    window.timesheets = createDevApi({ askComment: false });
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -55,10 +59,10 @@ describe("Timesheet grid", () => {
     render(<App />);
 
     // INT-15 is always listed by the demo; add a fresh issue to get an empty row.
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     // SUP-1101 has no time logged: find it with a JQL search.
     await runJql(user, "key = SUP-1101");
-    await screen.findByText("SUP-1101");
+    await screen.findByLabelText(issueLink("SUP-1101"));
 
     const day = workingDayKey();
     const target = cell("main:SUP-1101", day);
@@ -85,13 +89,13 @@ describe("Timesheet grid", () => {
   });
 
   it("keeps a worklog at 1 minute when Jira does not allow deleting it", async () => {
-    window.timesheets = createDevApi({ canDeleteWorklogs: false });
+    window.timesheets = createDevApi({ canDeleteWorklogs: false, askComment: false });
     const user = userEvent.setup();
     const update = vi.spyOn(window.timesheets, "updateWorklog");
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     await runJql(user, "key = IMPL-330");
-    await screen.findByText("IMPL-330");
+    await screen.findByLabelText(issueLink("IMPL-330"));
 
     const day = workingDayKey();
     await user.click(cell("main:IMPL-330", day));
@@ -111,7 +115,7 @@ describe("Timesheet grid", () => {
     const user = userEvent.setup();
     const create = vi.spyOn(window.timesheets, "createWorklog");
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     const day = workingDayKey();
     await user.click(cell("main:INT-15", day));
     await user.keyboard("{Enter}");
@@ -125,7 +129,7 @@ describe("Timesheet grid", () => {
   it("starts with the original classic look and switches theme from Settings", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     expect(document.documentElement.dataset.theme).toBe("classic");
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await user.click(await screen.findByRole("tab", { name: "Appearance" }));
@@ -147,8 +151,9 @@ describe("Timesheet grid", () => {
   it("sorts by total time and keeps the order while editing", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("INT-15");
-    const order = () => [...document.querySelectorAll("tbody td.keyCol a")].map((link) => link.textContent);
+    await screen.findByLabelText(issueLink("INT-15"));
+    const order = () =>
+      [...document.querySelectorAll("tbody td.linkCol a")].map((link) => link.getAttribute("aria-label")!.split(" ")[1]);
     const totals = () => [...document.querySelectorAll("tbody td.totalCol")].map((cell) => Number(cell.textContent || 0));
     const before = order();
     const sorted = totals();
@@ -173,7 +178,7 @@ describe("Timesheet grid", () => {
   it("applies the table font and size from Settings", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await user.click(await screen.findByRole("tab", { name: "Appearance" }));
     await user.selectOptions(await screen.findByLabelText("Table font"), "mono");
@@ -181,7 +186,7 @@ describe("Timesheet grid", () => {
     await user.click(screen.getByRole("button", { name: /save settings/i }));
     await screen.findByText("Settings saved.");
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     // Set on the timesheet container so the JQL search can line up with the Summary column.
     const sheet = document.querySelector<HTMLElement>("main.timesheet")!;
     expect(sheet.style.getPropertyValue("--grid-font-size")).toBe("18px");
@@ -191,7 +196,7 @@ describe("Timesheet grid", () => {
   it("starts with regular text on white, applies a custom background, and resets to the theme default", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     expect(screen.getByRole("columnheader", { name: "Summary" })).toBeInTheDocument();
     // White comes from the Classic theme itself, not from a stored colour, so other themes keep their own.
     expect(document.documentElement.dataset.theme).toBe("classic");
@@ -219,54 +224,54 @@ describe("Timesheet grid", () => {
     const user = userEvent.setup();
     const fetch = vi.spyOn(window.timesheets, "fetchMonth");
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     await user.click(screen.getByRole("radio", { name: "Support" }));
-    await waitFor(() => expect(screen.queryByText("INT-15")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByLabelText(issueLink("INT-15"))).not.toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await screen.findByText("Settings saved.", undefined, { timeout: 50 }).catch(() => null);
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
     expect(screen.getByRole("radio", { name: "Support" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByText("SUP-1042")).toBeInTheDocument();
-    expect(screen.queryByText("INT-15")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(issueLink("SUP-1042"))).toBeInTheDocument();
+    expect(screen.queryByLabelText(issueLink("INT-15"))).not.toBeInTheDocument();
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("runs a JQL search as its own list, and clears back to the base list", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     await runJql(user, "project = SUP");
     // Free list: SUP issues only, including one with no time yet; logged time stays in the cells.
-    await screen.findByText("SUP-1101");
-    expect(screen.queryByText("INT-15")).not.toBeInTheDocument();
-    expect(screen.getByText("SUP-1042")).toBeInTheDocument();
+    await screen.findByLabelText(issueLink("SUP-1101"));
+    expect(screen.queryByLabelText(issueLink("INT-15"))).not.toBeInTheDocument();
+    expect(screen.getByLabelText(issueLink("SUP-1042"))).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "All" })).toHaveAttribute("aria-checked", "false");
     await user.click(screen.getByRole("button", { name: "Clear JQL search" }));
-    await screen.findByText("INT-15");
-    expect(screen.queryByText("SUP-1101")).not.toBeInTheDocument();
+    await screen.findByLabelText(issueLink("INT-15"));
+    expect(screen.queryByLabelText(issueLink("SUP-1101"))).not.toBeInTheDocument();
   });
 
   it("runs the typed JQL when Refresh is pressed", async () => {
     const user = userEvent.setup();
     const search = vi.spyOn(window.timesheets, "searchIssues");
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     await user.type(screen.getByLabelText("Jira JQL search"), "key = OPS-512");
     await user.click(screen.getByRole("button", { name: /refresh/i }));
-    await screen.findByText("OPS-512");
+    await screen.findByLabelText(issueLink("OPS-512"));
     expect(search).toHaveBeenLastCalledWith("key = OPS-512");
-    expect(screen.queryByText("INT-15")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(issueLink("INT-15"))).not.toBeInTheDocument();
   });
 
   it("uses free filters as their own list and the All filter's JQL", async () => {
     const user = userEvent.setup();
     const api = window.timesheets;
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     // "All support" is a free filter: it lists SUP issues even without time this month.
     await user.click(screen.getByRole("radio", { name: "All support" }));
-    await screen.findByText("SUP-1101");
-    expect(screen.queryByText("INT-15")).not.toBeInTheDocument();
+    await screen.findByLabelText(issueLink("SUP-1101"));
+    expect(screen.queryByLabelText(issueLink("INT-15"))).not.toBeInTheDocument();
 
     // All with a narrowing JQL.
     const current = await api.loadData();
@@ -278,9 +283,9 @@ describe("Timesheet grid", () => {
     expect((await api.loadData()).settings.allFilter).toEqual({ ...current.settings.allFilter, jql: "project = IMPL" });
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
     await user.click(screen.getByRole("radio", { name: "All" }));
-    await waitFor(() => expect(screen.queryByText("INT-15")).not.toBeInTheDocument());
-    expect(screen.getByText("IMPL-310")).toBeInTheDocument();
-    expect(screen.queryByText("IMPL-330")).not.toBeInTheDocument(); // not in the base list
+    await waitFor(() => expect(screen.queryByLabelText(issueLink("INT-15"))).not.toBeInTheDocument());
+    expect(screen.getByLabelText(issueLink("IMPL-310"))).toBeInTheDocument();
+    expect(screen.queryByLabelText(issueLink("IMPL-330"))).not.toBeInTheDocument(); // not in the base list
 
     // Ticking Free makes All its own list.
     await user.click(screen.getByRole("button", { name: /settings/i }));
@@ -289,17 +294,17 @@ describe("Timesheet grid", () => {
     await user.click(screen.getByRole("button", { name: /save settings/i }));
     await screen.findByText("Settings saved.");
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
-    await screen.findByText("IMPL-330");
+    await screen.findByLabelText(issueLink("IMPL-330"));
   });
 
   it("leaves absence days out of the norm and shows them in grey", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     // The demo has 3 absence working days: CAL-101 (2 days) and CAL-102 (1 day).
     const workdays = monthDays(currentMonth()).filter((day) => !day.isWeekend);
     // "Target" = working days up to today, without absence days, × 8h.
-    const normText = () => indicatorValue("Target to date");
+    const normText = () => indicatorValue("Due");
     const pastDays = workdays.filter((day) => day.key <= todayKey());
     const absentPast = [6, 7, 14].filter((index) => workdays[index].key <= todayKey()).length;
     expect(normText()).toBe(String((pastDays.length - absentPast) * 8 || 0));
@@ -326,7 +331,7 @@ describe("Timesheet grid", () => {
 
   it("shows a cell's worklogs as a hint after 1 second", async () => {
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     const withTime = document.querySelector<HTMLElement>("td.cell[data-tip]")!;
     expect(withTime.getAttribute("title")).toBeNull();
     fireEvent.mouseOver(withTime);
@@ -340,20 +345,23 @@ describe("Timesheet grid", () => {
   it("styles the selected filter like the Refresh button", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     expect(screen.getByRole("radio", { name: "All" })).toHaveClass("chip", "active");
     await user.click(screen.getByRole("radio", { name: "Support" }));
     expect(screen.getByRole("radio", { name: "Support" })).toHaveClass("active");
     expect(screen.getByRole("radio", { name: "All" })).not.toHaveClass("active");
   });
 
-  it("shows columns as Summary, Key, Total and the issue type icon before the summary", async () => {
+  it("shows columns as Link, Summary, Total and the issue type icon before the summary", async () => {
     render(<App />);
-    await screen.findByText("INT-15");
-    const headings = [...document.querySelectorAll("thead tr.dayRow th")].slice(0, 3).map((th) => th.textContent);
-    expect(headings).toEqual(["Summary", "Key", "Total"]);
+    await screen.findByLabelText(issueLink("INT-15"));
+    const headings = [...document.querySelectorAll("thead tr.dayRow th")].slice(0, 3);
+    expect(headings.map((th) => th.getAttribute("aria-label") || th.textContent)).toEqual(["Link", "Summary", "Total"]);
     const firstRow = document.querySelector("tbody tr")!;
-    expect([...firstRow.children].slice(0, 2).map((td) => td.className)).toEqual(["summaryCol", "keyCol"]);
+    expect([...firstRow.children].slice(0, 3).map((td) => td.className)).toEqual(["linkCol", "summaryCol", "totalCol"]);
+    // No Key column: the key is in the link and in the summary hint.
+    expect(firstRow.querySelector("td.linkCol a svg")).toBeInTheDocument();
+    expect(firstRow.querySelector("td.summaryCol")!.getAttribute("data-tip")).toMatch(/^[A-Z]+-\d+ · /);
     const icon = firstRow.querySelector<HTMLImageElement>("td.summaryCol img.typeIcon")!;
     expect(icon.src).toMatch(/^data:image\/svg\+xml/);
     expect(icon.alt).toMatch(/Task|Bug|Story|Sub-task/);
@@ -362,7 +370,7 @@ describe("Timesheet grid", () => {
   it("reorders filters by drag and drop in Settings, with All kept first", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     const chips = () => screen.getAllByRole("radio").map((chip) => chip.textContent);
     expect(chips()).toEqual(["All", "Support", "Implementation", "SME", "All support"]);
 
@@ -387,7 +395,7 @@ describe("Timesheet grid", () => {
     const user = userEvent.setup();
     const fetch = vi.spyOn(window.timesheets, "fetchMonth");
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await user.click(await screen.findByRole("tab", { name: "Filters" }));
     const field = (await screen.findByLabelText(/Base JQL/)) as HTMLInputElement;
@@ -405,17 +413,18 @@ describe("Timesheet grid", () => {
   });
 
   it("shows Settings as tabs and checks for updates on the About tab", async () => {
-    window.timesheets = createDevApi({ latestVersion: "0.9.0" });
+    window.timesheets = createDevApi({ latestVersion: "0.9.0", askComment: false });
     const user = userEvent.setup();
     const open = vi.spyOn(window.timesheets, "openExternal");
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     await user.click(screen.getByRole("button", { name: /settings/i }));
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Jira sources",
       "Filters",
       "Absences",
       "Timesheet",
+      "Allocation",
       "Appearance",
       "About & updates"
     ]);
@@ -433,12 +442,12 @@ describe("Timesheet grid", () => {
     expect(open).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/github.com\/sava-code\/Timesheets\/releases\/download\//));
   });
 
-  it("shows Target to date, Month, Left to post and Timeliness next to Refresh", async () => {
+  it("shows Due, Month, Left to post and Timeliness next to Refresh", async () => {
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     const indicators = [...document.querySelectorAll<HTMLElement>(".toolbar .indicator")];
     expect(indicators.map((item) => item.querySelector(".indicatorCaption")!.textContent)).toEqual([
-      "Target to date",
+      "Due",
       "Month",
       expect.stringMatching(/^(Left to post|Over target)$/),
       "Timeliness"
@@ -454,64 +463,90 @@ describe("Timesheet grid", () => {
     expect(screen.queryByText("Logged")).not.toBeInTheDocument();
   });
 
-  it("asks for a comment on new worklogs when enabled, never on changes", async () => {
+  it("asks for a comment on new worklogs by default, never on changes, and can be switched off", async () => {
+    window.timesheets = createDevApi();
     const user = userEvent.setup();
     const api = window.timesheets;
     const create = vi.spyOn(api, "createWorklog");
     const update = vi.spyOn(api, "updateWorklog");
     render(<App />);
-    await screen.findByText("INT-15");
-
-    // Off by default: no window.
+    await screen.findByLabelText(issueLink("INT-15"));
     await runJql(user, "key = SUP-1101");
-    await screen.findByText("SUP-1101");
-    const day = workingDayKey();
-    await user.click(cell("main:SUP-1101", day));
-    await user.keyboard("1{Enter}");
-    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-
-    // Switch it on.
-    await user.click(screen.getByRole("button", { name: /settings/i }));
-    await user.click(await screen.findByRole("tab", { name: "Timesheet" }));
-    await user.click(screen.getByLabelText("Ask for a comment on new worklogs"));
-    await user.click(screen.getByRole("button", { name: /save settings/i }));
-    await screen.findByText("Settings saved.");
-    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    await screen.findByLabelText(issueLink("SUP-1101"));
 
     // New worklog: Save with a comment.
-    const next = workingDayKeys()[1];
-    await user.click(cell("main:SUP-1101", next));
+    const [first, second, third] = workingDayKeys();
+    await user.click(cell("main:SUP-1101", first));
     await user.keyboard("2{Enter}");
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent("SUP-1101");
     await user.type(within(dialog).getByLabelText("Worklog comment"), "Investigated the export");
     await user.click(within(dialog).getByRole("button", { name: "Save worklog" }));
     await waitFor(() => expect(create).toHaveBeenLastCalledWith("main", expect.objectContaining({ seconds: 7200, comment: "Investigated the export" })));
-    await waitFor(() => expect(cell("main:SUP-1101", next)).toHaveTextContent("2"));
+    await waitFor(() => expect(cell("main:SUP-1101", first)).toHaveTextContent("2"));
 
     // Changing an existing worklog: no window.
-    await user.click(cell("main:SUP-1101", next));
+    await user.click(cell("main:SUP-1101", first));
     await user.keyboard("3{Enter}");
     await waitFor(() => expect(update).toHaveBeenCalled());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     // Cancel: nothing is created.
-    const third = workingDayKeys()[2];
     const calls = create.mock.calls.length;
-    await user.click(cell("main:SUP-1101", third));
+    await user.click(cell("main:SUP-1101", second));
     await user.keyboard("1{Enter}");
     await screen.findByRole("dialog");
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(create.mock.calls.length).toBe(calls);
-    expect(cell("main:SUP-1101", third)).toHaveTextContent("");
+    expect(cell("main:SUP-1101", second)).toHaveTextContent("");
+
+    // Switch it off: new worklogs are created right away.
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Timesheet" }));
+    const option = screen.getByLabelText("Ask for a comment on new worklogs");
+    expect(option).toBeChecked();
+    await user.click(option);
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    await user.click(cell("main:SUP-1101", third));
+    await user.keyboard("1{Enter}");
+    await waitFor(() => expect(create.mock.calls.length).toBe(calls + 1));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("shows the worklogs allocation under the table and edits its categories in Settings", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByLabelText(issueLink("INT-15"));
+    const chart = screen.getByRole("region", { name: "Worklogs allocation" });
+    const parts = within(chart).getAllByRole("listitem").filter((item) => item.classList.contains("allocationPart"));
+    expect(parts.length).toBeGreaterThan(1);
+    const percents = parts.map((part) => Number(part.getAttribute("aria-label")!.match(/: ([\d.,]+)%/)![1].replace(",", ".")));
+    expect(percents.reduce((sum, value) => sum + value, 0)).toBeCloseTo(100, 0);
+    expect(percents).toEqual([...percents].sort((a, b) => b - a));
+    expect(chart).toHaveTextContent("Support");
+
+    // Rename a category in Settings; the chart follows.
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Allocation" }));
+    const name = screen.getByLabelText("Category name 1");
+    expect(name).toHaveValue("Support");
+    await user.clear(name);
+    await user.type(name, "Help desk");
+    await user.click(screen.getByRole("button", { name: "Move Help desk down" }));
+    expect(screen.getByLabelText("Category name 2")).toHaveValue("Help desk");
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    await waitFor(() => expect(screen.getByRole("region", { name: "Worklogs allocation" })).toHaveTextContent("Help desk"));
   });
 
   it("shows Forget next to the saved password", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await user.click(await screen.findByRole("tab", { name: "Jira sources" }));
     const field = (await screen.findAllByPlaceholderText("Saved — type to replace"))[0];
@@ -522,13 +557,13 @@ describe("Timesheet grid", () => {
     const user = userEvent.setup();
     const match = vi.spyOn(window.timesheets, "matchFilter");
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     await user.click(screen.getByRole("radio", { name: "Support" }));
-    await waitFor(() => expect(screen.queryByText("INT-15")).not.toBeInTheDocument());
-    expect(screen.getByText("SUP-1042")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByLabelText(issueLink("INT-15"))).not.toBeInTheDocument());
+    expect(screen.getByLabelText(issueLink("SUP-1042"))).toBeInTheDocument();
     expect(match).toHaveBeenCalledWith("project = SUP", expect.objectContaining({ main: expect.arrayContaining(["INT-15"]) }));
     await user.click(screen.getByRole("radio", { name: "All" }));
-    expect(screen.getByText("INT-15")).toBeInTheDocument();
+    expect(screen.getByLabelText(issueLink("INT-15"))).toBeInTheDocument();
   });
 
   it("reports a broken filter JQL and falls back to All", async () => {
@@ -537,10 +572,10 @@ describe("Timesheet grid", () => {
     await api.saveData({ ...original, settings: { ...original.settings, filters: [{ id: "bad", label: "Broken", jql: "status = !!", free: false }] } });
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("INT-15");
+    await screen.findByLabelText(issueLink("INT-15"));
     await user.click(screen.getByRole("radio", { name: "Broken" }));
     expect(await screen.findByText(/Filter "Broken".*Error in the JQL Query/)).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "All" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByText("INT-15")).toBeInTheDocument();
+    expect(screen.getByLabelText(issueLink("INT-15"))).toBeInTheDocument();
   });
 });

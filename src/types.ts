@@ -19,6 +19,18 @@ export interface JiraConnection {
   clearToken?: boolean;
 }
 
+/** A worklogs allocation category. Lists are comma-separated; any match puts the issue in it. */
+export interface AllocationRule {
+  id: string;
+  name: string;
+  /** Issue type names, e.g. "Support Request" */
+  types: string;
+  /** Project names or keys */
+  projects: string;
+  /** Text anywhere in the summary */
+  summary: string;
+}
+
 export interface FilterGroup {
   id: string;
   label: string;
@@ -60,6 +72,8 @@ export interface Settings {
   allFilter: AllFilter;
   /** Ask for a comment in a window when a new worklog is entered */
   askComment: boolean;
+  /** Worklogs allocation categories, checked in order */
+  allocationRules: AllocationRule[];
   absences: AbsenceSettings;
   filters: FilterGroup[];
   jiraConnections: JiraConnection[];
@@ -76,6 +90,8 @@ export interface Issue {
   key: string;
   summary: string;
   projectKey: string;
+  /** Jira project name, e.g. "Custom Development" (for the allocation categories) */
+  projectName?: string;
   status: string;
   url: string;
   /** Issue type name, e.g. "Bug" */

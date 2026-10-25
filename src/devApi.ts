@@ -1,3 +1,4 @@
+import { DEFAULT_ALLOCATION_RULES } from "./timesheet";
 // In-browser stand-in for the Electron bridge, used by `npm run dev:web` and tests.
 import type { Absence, AppData, Issue, MonthResult, TimesheetsApi, Worklog } from "./types";
 import { monthDays } from "./time";
@@ -36,6 +37,16 @@ const demoType = (key: string) => {
   return DEMO_TYPES.Task;
 };
 
+// Demo project names, so the allocation chart shows several categories.
+const DEMO_PROJECTS: Record<string, string> = {
+  SUP: "Support Infrastructure",
+  OPS: "Customer Upgrade",
+  IMPL: "Custom Development",
+  ARCH: "Business Analysis",
+  BA: "Business Analysis",
+  INT: "Internal"
+};
+
 function issue(sourceId: string, key: string, summary: string): Issue {
   const [issueType, typeIcon] = demoType(key);
   return {
@@ -44,6 +55,7 @@ function issue(sourceId: string, key: string, summary: string): Issue {
     key,
     summary,
     projectKey: key.split("-")[0],
+    projectName: DEMO_PROJECTS[key.split("-")[0]] || "",
     status: "In Progress",
     url: `https://jira.example.com/browse/${key}`,
     issueType,
@@ -107,7 +119,9 @@ function seededData(month: string): Map<string, Worklog[]> {
   return bySource;
 }
 
-export function createDevApi(options: { canDeleteWorklogs?: boolean; latestVersion?: string } = {}): TimesheetsApi {
+export function createDevApi(
+  options: { canDeleteWorklogs?: boolean; latestVersion?: string; askComment?: boolean } = {}
+): TimesheetsApi {
   const canDelete = options.canDeleteWorklogs !== false;
   let data: AppData = {
     version: 1,
@@ -122,7 +136,8 @@ export function createDevApi(options: { canDeleteWorklogs?: boolean; latestVersi
       backgroundColor: "",
       baseJql: 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"',
       allFilter: { jql: "", free: false },
-      askComment: false,
+      askComment: options.askComment !== false,
+      allocationRules: DEFAULT_ALLOCATION_RULES.map((rule) => ({ ...rule })),
       absences: {
         enabled: true,
         sourceId: "",

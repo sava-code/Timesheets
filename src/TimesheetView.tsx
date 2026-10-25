@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -9,9 +8,10 @@ import {
   type KeyboardEvent,
   type MouseEvent as ReactMouseEvent
 } from "react";
-import { ChevronLeft, ChevronRight, Code2, LoaderCircle, RefreshCw, Search, UserRound, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Code2, LoaderCircle, Paperclip, RefreshCw, Search, UserRound, X } from "lucide-react";
 import { api, errorText } from "./api";
 import { tableFontStack } from "./fonts";
+import { AllocationChart } from "./AllocationChart";
 import type { AppData, Issue, MonthResult, SearchResult, Worklog } from "./types";
 import { currentMonth, formatDuration, monthDays, monthLabel, parseDuration, shiftMonth, todayKey } from "./time";
 import {
@@ -28,6 +28,7 @@ import {
   qualityScaleText,
   qualityMessage,
   worklogQuality,
+  worklogAllocation,
   planCellEdit,
   updateSourceWorklogs,
   visibleDays,
@@ -82,6 +83,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   const format = settings.displayFormat;
   const [month, setMonth] = useState(currentMonth());
   const [result, setResult] = useState<MonthResult | null>(null);
+  const allocation = useMemo(() => worklogAllocation(result, settings.allocationRules), [result, settings.allocationRules]);
   const [loading, setLoading] = useState(false);
   const [filterId, setFilterId] = useState("all");
   // Narrowing filter: rows of the base list that match its JQL (ids null = could not be applied).
@@ -376,37 +378,6 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
     return () => observer.disconnect();
   }, [hasGrid]);
 
-  // Key column: as wide as the longest issue key (and source name under it) on screen, so keys are
-  // never cut. Measured inside the table, so it uses exactly the table's font and digit widths.
-  const [keyFit, setKeyFit] = useState(0);
-  const keyTexts = useMemo(
-    () => [...new Set(rows.map((row) => row.issue.key))].join("\n") + "\u0000" + (multiSource ? [...new Set(rows.map((row) => row.issue.sourceName))].join("\n") : ""),
-    [rows, multiSource]
-  );
-  useLayoutEffect(() => {
-    const table = gridRef.current?.querySelector("table.grid");
-    // Hidden (Settings open): nothing can be measured; this runs again when the table is shown.
-    if (!table || !rows.length || !gridRef.current?.clientWidth) return;
-    const u = settings.tableFontSize;
-    const probe = document.createElement("span");
-    probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0";
-    table.appendChild(probe);
-    const measure = (text: string, size = "1em") => {
-      probe.style.fontSize = size;
-      probe.textContent = text;
-      return probe.getBoundingClientRect().width;
-    };
-    const [keys, sources] = keyTexts.split("\u0000");
-    let widest = measure("Key");
-    for (const key of keys.split("\n")) widest = Math.max(widest, measure(key));
-    for (const source of sources ? sources.split("\n") : []) widest = Math.max(widest, measure(source, "0.72em"));
-    probe.remove();
-    // + padding (0.43em each side) + borders and rounding; between a minimum and a cap,
-    // so a very long source name can't take over the table.
-    const width = Math.min(Math.max(Math.ceil(widest + u * 0.86 + 3), Math.round(u * 6)), Math.round(u * 14));
-    setKeyFit(width);
-  }, [keyTexts, settings.tableFontSize, settings.tableFont, gridSpace > 0]);
-
   useEffect(() => {
     if (!selected || editing) return;
     gridRef.current
@@ -642,7 +613,6 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
           "--grid-font": tableFontStack(settings.tableFont),
           "--grid-font-size": `${settings.tableFontSize}px`,
           "--days": days.length,
-          ...(keyFit ? { "--key-fit": `${keyFit}px` } : {}),
           ...(gridSpace ? { "--grid-space": `${gridSpace}px` } : {})
         } as CSSProperties
       }
@@ -665,8 +635,8 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
 
         {/* Indicators: caption on top, big value, optional line underneath */}
         <div className="indicators">
-          <div className="indicator neutral" title="Working days so far this month (without absences) × daily norm">
-            <span className="indicatorCaption">Target to date</span>
+          <div className="indicator neutral" title="Due by today: working days so far this month (without absences) × daily norm">
+            <span className="indicatorCaption">Due</span>
             <span className="indicatorValue">
               {hours(month <= currentMonth() ? normToDate : 0)}
             </span>
@@ -677,7 +647,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
           </div>
           <div
             className={["indicator", toLog > 0 ? "toLog" : "allLogged"].join(" ")}
-            title={`Target to date ${formatDuration(normToDate, "jira") || "0h"} minus posted up to today ${formatDuration(loggedToDate, "jira") || "0h"}`}
+            title={`Due ${formatDuration(normToDate, "jira") || "0h"} minus posted up to today ${formatDuration(loggedToDate, "jira") || "0h"}`}
           >
             <span className="indicatorCaption">{toLog >= 0 ? "Left to post" : "Over target"}</span>
             <span className="indicatorValue">{toLog < 0 ? <>+{hours(-toLog)}</> : hours(toLog)}</span>
@@ -776,8 +746,10 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
         <table className="grid">
           <thead>
             <tr className="dayRow">
+              <th className="linkCol" aria-label="Link">
+                <Paperclip size={13} />
+              </th>
               <th className="summaryCol">Summary</th>
-              <th className="keyCol">Key</th>
               <th className="totalCol">Total</th>
               {days.map((day) => (
                 <th
@@ -791,10 +763,10 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
               ))}
             </tr>
             <tr className="totalsRow">
+              <th className="linkCol" />
               <th className="summaryCol">
                 {narrowJql || search.trim() ? `Total · ${rows.length} of ${allRows.length} issues` : `Total · ${rows.length} issues`}
               </th>
-              <th className="keyCol" />
               <th className="totalCol">{formatDuration(filteredTotal, format)}</th>
               {days.map((day) => (
                 <th
@@ -810,7 +782,24 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
           <tbody>
             {rows.map((row) => (
               <tr key={row.id}>
-                <td className="summaryCol" data-tip={row.issue.issueType ? `${row.issue.issueType} · ${row.issue.summary}` : row.issue.summary}>
+                <td className="linkCol">
+                  <a
+                    className="issueLink"
+                    href={row.issue.url}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void api().openExternal(row.issue.url);
+                    }}
+                    aria-label={`Open ${row.issue.key} in ${row.issue.sourceName}`}
+                    data-tip={`Open ${row.issue.key} in ${row.issue.sourceName}`}
+                  >
+                    <Paperclip size={14} />
+                  </a>
+                </td>
+                <td
+                  className="summaryCol"
+                  data-tip={[row.issue.key, row.issue.issueType, row.issue.summary].filter(Boolean).join(" · ")}
+                >
                   <span className="summaryInner">
                     {row.issue.typeIcon ? (
                       <img className="typeIcon" src={row.issue.typeIcon} alt={row.issue.issueType || ""} />
@@ -819,19 +808,6 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
                     )}
                     <span className="summaryText">{row.issue.summary}</span>
                   </span>
-                </td>
-                <td className="keyCol">
-                  <a
-                    href={row.issue.url}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      void api().openExternal(row.issue.url);
-                    }}
-                    data-tip={`Open ${row.issue.key} in ${row.issue.sourceName}`}
-                  >
-                    {row.issue.key}
-                  </a>
-                  {multiSource && <span className="source">{row.issue.sourceName}</span>}
                 </td>
                 <td className="totalCol">{formatDuration(row.total, format)}</td>
                 {days.map((day) => {
@@ -911,6 +887,10 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div onMouseOver={onGridMouseOver} onMouseLeave={hideTip}>
+        <AllocationChart shares={allocation} format={format} categories={settings.allocationRules.map((rule) => rule.name)} />
       </div>
 
       {tip && (

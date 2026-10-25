@@ -36,18 +36,21 @@ describe("storage-core", () => {
     expect(data.settings.allFilter).toEqual({ jql: "", free: false });
   });
 
-  const DEFAULT_LOOK = { theme: "classic", tableFont: "system", tableFontSize: 12, backgroundColor: "" };
+  const DEFAULT_LOOK = { theme: "classic", tableFont: "segoe", tableFontSize: 12, backgroundColor: "" };
 
   it("defaults to the current look and moves files from older versions to it once", () => {
     expect(core.defaultData().settings).toMatchObject(DEFAULT_LOOK);
     for (const version of [1, 2]) {
       const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, backgroundColor: "" } });
       expect(old.settings).toMatchObject(DEFAULT_LOOK);
-      expect(old.version).toBe(6);
+      expect(old.version).toBe(7);
     }
     // From version 3 on, the user's choice is kept.
     const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" } });
     expect(chosen.settings).toMatchObject({ theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" });
+    // Version 7 moves the old default system font to Segoe UI once; later choices stay.
+    expect(core.mergeDefaults({ version: 6, settings: { tableFont: "system" } }).settings.tableFont).toBe("segoe");
+    expect(core.mergeDefaults({ version: 7, settings: { tableFont: "system" } }).settings.tableFont).toBe("system");
   });
 
   it("starts with the default free filters and adds them once to older settings", () => {
@@ -112,10 +115,23 @@ describe("storage-core", () => {
     });
   });
 
-  it("does not ask for comments by default", () => {
-    expect(core.defaultData().settings.askComment).toBe(false);
-    expect(core.mergeDefaults({ version: 6, settings: { askComment: true } }).settings.askComment).toBe(true);
-    expect(core.mergeDefaults({ version: 6, settings: { askComment: "yes" } }).settings.askComment).toBe(false);
+  it("asks for comments by default, switched on once for older settings", () => {
+    expect(core.defaultData().settings.askComment).toBe(true);
+    expect(core.mergeDefaults({ version: 6, settings: { askComment: false } }).settings.askComment).toBe(true);
+    expect(core.mergeDefaults({ version: 7, settings: { askComment: false } }).settings.askComment).toBe(false);
+    expect(core.mergeDefaults({ version: 7, settings: {} }).settings.askComment).toBe(true);
+  });
+
+  it("has the default allocation categories and cleans edited ones", () => {
+    const rules = core.defaultData().settings.allocationRules;
+    expect(rules.map((rule) => rule.name)).toEqual(["Support", "Implementation", "SME", "Academy", "Apollo"]);
+    expect(rules[0]).toEqual({ id: "support", name: "Support", types: "Support Request", projects: "Support Infrastructure, Customer Upgrade", summary: "" });
+    const edited = core.mergeDefaults({
+      version: 7,
+      settings: { allocationRules: [{ id: "x", name: " Ops ", projects: "OPS", extra: 1 }, { id: "y", name: "", projects: "Z" }, "junk"] }
+    }).settings.allocationRules;
+    expect(edited).toEqual([{ id: "x", name: "Ops", types: "", projects: "OPS", summary: "" }]);
+    expect(core.mergeDefaults({ version: 7, settings: { allocationRules: [] } }).settings.allocationRules).toEqual([]);
   });
 
   it("defaults the base JQL and falls back to it when cleared", () => {
