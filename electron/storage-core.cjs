@@ -63,6 +63,11 @@ function makeId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+/** The Jira field holding the client: customfield_11000 on ows-jira.spb, customfield_10703 elsewhere. */
+function defaultClientField(baseUrl) {
+  return String(baseUrl || "").toLowerCase().includes("ows-jira.spb.") ? "customfield_11000" : "customfield_10703";
+}
+
 function defaultConnection(index = 0) {
   return {
     id: index === 0 ? "jira-1" : makeId("jira"),
@@ -72,6 +77,7 @@ function defaultConnection(index = 0) {
     authType: "basic",
     email: "",
     extraJql: "",
+    clientField: defaultClientField(""),
     enabled: true
   };
 }
@@ -175,6 +181,11 @@ function normalizeConnection(connection, index) {
     authType: merged.authType === "bearer" ? "bearer" : "basic",
     email: String(merged.email || "").trim(),
     extraJql: String(merged.extraJql || "").trim(),
+    // Saved before the client field existed: the default for its URL.
+    clientField:
+      connection && typeof connection.clientField === "string"
+        ? connection.clientField.trim()
+        : defaultClientField(merged.baseUrl),
     enabled: merged.enabled !== false
   };
 }
@@ -295,6 +306,7 @@ function normalizeIncomingData(incoming, existing, safeStorage) {
 }
 
 module.exports = {
+  defaultClientField,
   decryptToken,
   defaultConnection,
   defaultData,

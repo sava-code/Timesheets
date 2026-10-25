@@ -62,6 +62,10 @@ function previewBaseJql(template: string): string {
   return (template.trim() || DEFAULT_BASE_JQL).replace(/\{monthStart\}/g, `${month}-01`).replace(/\{monthEnd\}/g, `${month}-${pad(last)}`);
 }
 
+/** Same as defaultClientField in electron/storage-core.cjs. */
+export const defaultClientField = (baseUrl: string) =>
+  baseUrl.toLowerCase().includes("ows-jira.spb.") ? "customfield_11000" : "customfield_10703";
+
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 function newConnection(index: number): JiraConnection {
@@ -73,6 +77,7 @@ function newConnection(index: number): JiraConnection {
     authType: "basic",
     email: "",
     extraJql: "",
+    clientField: defaultClientField(""),
     enabled: true
   };
 }
@@ -305,7 +310,12 @@ export function SettingsView({ data, onSaved }: Props) {
                           <input
                             value={connection.baseUrl}
                             placeholder="https://jira.company.com or https://company.atlassian.net"
-                            onChange={(event) => patchConnection(connection.id, { baseUrl: event.target.value })}
+                            onChange={(event) => {
+                              const baseUrl = event.target.value;
+                              // The client field follows the URL while it is still the default for the old URL.
+                              const followsUrl = !connection.clientField || connection.clientField === defaultClientField(connection.baseUrl);
+                              patchConnection(connection.id, followsUrl ? { baseUrl, clientField: defaultClientField(baseUrl) } : { baseUrl });
+                            }}
                           />
                         </label>
                         <label>
@@ -358,12 +368,21 @@ export function SettingsView({ data, onSaved }: Props) {
                             )}
                           </div>
                         </div>
-                        <label className="full">
+                        <label className="wide">
                           Extra issues JQL <span className="muted">(optional — issues to show even without time this month)</span>
                           <input
                             value={connection.extraJql}
                             placeholder='e.g. filter = worklogs   or   assignee = currentUser() AND resolution = Unresolved'
                             onChange={(event) => patchConnection(connection.id, { extraJql: event.target.value })}
+                          />
+                        </label>
+                        <label>
+                          Client field <span className="muted">(for top clients)</span>
+                          <input
+                            value={connection.clientField}
+                            placeholder="e.g. customfield_10703"
+                            spellCheck={false}
+                            onChange={(event) => patchConnection(connection.id, { clientField: event.target.value })}
                           />
                         </label>
                       </div>

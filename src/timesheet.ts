@@ -369,3 +369,24 @@ export function worklogAllocation(result: MonthResult | null, rules: AllocationR
     .map(([name, seconds]) => ({ name, seconds, percent: (seconds / all) * 100 }))
     .sort((a, b) => b.seconds - a.seconds || a.name.localeCompare(b.name));
 }
+
+/** The clients with the most of your logged time this month; percent of all your time in the month. */
+export function topClients(result: MonthResult | null, count = 5): AllocationShare[] {
+  if (!result) return [];
+  const totals = new Map<string, number>();
+  let all = 0;
+  for (const source of result.sources) {
+    const clients = new Map(source.issues.map((issue) => [issue.key, (issue.client || "").trim()]));
+    for (const worklog of source.worklogs) {
+      all += worklog.seconds;
+      const client = clients.get(worklog.issueKey);
+      if (client) totals.set(client, (totals.get(client) || 0) + worklog.seconds);
+    }
+  }
+  if (!all) return [];
+  return [...totals.entries()]
+    .filter(([, seconds]) => seconds > 0)
+    .map(([name, seconds]) => ({ name, seconds, percent: (seconds / all) * 100 }))
+    .sort((a, b) => b.seconds - a.seconds || a.name.localeCompare(b.name))
+    .slice(0, count);
+}

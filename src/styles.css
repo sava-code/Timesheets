@@ -1210,7 +1210,8 @@ label.check.standalone {
   --row-hover: #e6f7ff;
 }
 
-.gridWrap .grid td.absent:not(.selected) {
+.gridWrap .grid td.absent:not(.selected),
+.gridWrap .grid tbody td.weekend:not(.selected) {
   background: var(--absent);
 }
 
@@ -1622,74 +1623,49 @@ label.check.standalone {
   white-space: nowrap;
 }
 
-/* Worklogs allocation under the table */
+/* Worklogs allocation and top clients under the table: colour-keyed lines */
 .allocation {
   flex: none;
+  display: grid;
+  gap: 6px;
   padding: 10px 0 2px;
+  font-size: 12px;
 }
 
-.allocationTitle {
-  margin: 0 0 6px;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--muted) 75%, var(--bg));
-}
-
-.allocationBar {
-  display: flex;
-  height: 26px;
-  overflow: hidden;
-  border-radius: 4px;
-  background: var(--surface-2);
-}
-
-.allocationPart {
+.clientsLine {
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-width: 2px;
-  overflow: hidden;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 600;
+  gap: 16px;
+}
+
+.shareCaption {
+  color: color-mix(in srgb, var(--muted) 75%, var(--bg));
+  font-weight: 500;
   white-space: nowrap;
 }
 
-.allocationPart + .allocationPart {
-  border-left: 1px solid var(--bg);
-}
-
-.allocationLabel {
-  padding: 0 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.allocationLegend {
+.shareLegend {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
-  margin: 6px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 12px;
   color: var(--muted);
 }
 
-.allocationLegend li {
+.shareLegend li {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.allocationLegend b {
+.shareLegend b {
   color: var(--text);
   font-weight: 600;
 }
 
-.allocationLegend .swatch {
+.shareLegend .swatch {
   width: 10px;
   height: 10px;
   border-radius: 2px;

@@ -47,6 +47,15 @@ const DEMO_PROJECTS: Record<string, string> = {
   INT: "Internal"
 };
 
+// Demo clients for the top clients line (INT issues have none).
+const DEMO_CLIENTS: Record<string, string> = {
+  SUP: "Northwind Bank",
+  OPS: "Contoso Pay",
+  IMPL: "Fabrikam Finance",
+  ARCH: "Tailspin Cards",
+  BA: "Woodgrove Bank"
+};
+
 function issue(sourceId: string, key: string, summary: string): Issue {
   const [issueType, typeIcon] = demoType(key);
   return {
@@ -57,6 +66,7 @@ function issue(sourceId: string, key: string, summary: string): Issue {
     projectKey: key.split("-")[0],
     projectName: DEMO_PROJECTS[key.split("-")[0]] || "",
     status: "In Progress",
+    client: DEMO_CLIENTS[key.split("-")[0]] || "",
     url: `https://jira.example.com/browse/${key}`,
     issueType,
     typeIcon
@@ -152,8 +162,8 @@ export function createDevApi(
         { id: "f4", label: "All support", jql: "project = SUP AND resolution = Unresolved", free: true }
       ],
       jiraConnections: [
-        { id: "main", name: "Delivery Jira", baseUrl: "https://jira.example.com", apiVersion: "2", authType: "bearer", email: "", extraJql: "filter = worklogs", enabled: true, tokenPresent: true },
-        { id: "client", name: "Client Jira", baseUrl: "https://client.atlassian.net", apiVersion: "3", authType: "basic", email: "me@example.com", extraJql: "", enabled: true, tokenPresent: true }
+        { id: "main", name: "Delivery Jira", baseUrl: "https://jira.example.com", apiVersion: "2", authType: "bearer", email: "", extraJql: "filter = worklogs", clientField: "customfield_10703", enabled: true, tokenPresent: true },
+        { id: "client", name: "Client Jira", baseUrl: "https://client.atlassian.net", apiVersion: "3", authType: "basic", email: "me@example.com", extraJql: "", clientField: "customfield_10703", enabled: true, tokenPresent: true }
       ]
     }
   };

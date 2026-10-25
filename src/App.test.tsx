@@ -521,11 +521,25 @@ describe("Timesheet grid", () => {
     render(<App />);
     await screen.findByLabelText(issueLink("INT-15"));
     const chart = screen.getByRole("region", { name: "Worklogs allocation" });
-    const parts = within(chart).getAllByRole("listitem").filter((item) => item.classList.contains("allocationPart"));
-    expect(parts.length).toBeGreaterThan(1);
-    const percents = parts.map((part) => Number(part.getAttribute("aria-label")!.match(/: ([\d.,]+)%/)![1].replace(",", ".")));
+    // Legend only: no bar and no title.
+    expect(chart.querySelector(".allocationBar")).toBeNull();
+    expect(chart).not.toHaveTextContent("Worklogs allocation");
+    const items = within(within(chart).getByRole("list", { name: "Allocation" })).getAllByRole("listitem");
+    expect(items.length).toBeGreaterThan(1);
+    const percents = items.map((item) => Number(item.getAttribute("aria-label")!.match(/: ([\d.,]+)%/)![1].replace(",", ".")));
     expect(percents.reduce((sum, value) => sum + value, 0)).toBeCloseTo(100, 0);
     expect(percents).toEqual([...percents].sort((a, b) => b - a));
+    // Fixed colours of the default categories.
+    const swatch = (name: string) => items.find((item) => item.getAttribute("aria-label")!.startsWith(`${name}:`))!.querySelector<HTMLElement>(".swatch")!.style.background;
+    expect(swatch("Support")).toBe("rgb(1, 138, 128)");
+    expect(swatch("SME")).toBe("rgb(1, 184, 170)");
+    expect(swatch("Implementation")).toBe("rgb(33, 130, 160)");
+    // Top clients: at most 5, largest first, issues without a client left out.
+    const clients = within(within(chart).getByRole("list", { name: "Top clients" })).getAllByRole("listitem");
+    expect(clients.length).toBeGreaterThan(0);
+    expect(clients.length).toBeLessThanOrEqual(5);
+    expect(chart).toHaveTextContent(`Top ${clients.length} clients`);
+    expect(chart).toHaveTextContent("Northwind Bank");
     expect(chart).toHaveTextContent("Support");
 
     // Rename a category in Settings; the chart follows.
@@ -541,6 +555,24 @@ describe("Timesheet grid", () => {
     await screen.findByText("Settings saved.");
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
     await waitFor(() => expect(screen.getByRole("region", { name: "Worklogs allocation" })).toHaveTextContent("Help desk"));
+  });
+
+  it("has a client field per Jira that follows the URL until changed", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByLabelText(issueLink("INT-15"));
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Jira sources" }));
+    const url = screen.getAllByLabelText("Base URL")[0];
+    const field = screen.getAllByLabelText(/Client field/)[0];
+    expect(field).toHaveValue("customfield_10703");
+    await user.clear(url);
+    await user.type(url, "https://ows-jira.spb.example.com");
+    expect(field).toHaveValue("customfield_11000");
+    await user.clear(field);
+    await user.type(field, "customfield_1");
+    await user.type(url, "/x");
+    expect(field).toHaveValue("customfield_1");
   });
 
   it("shows Forget next to the saved password", async () => {

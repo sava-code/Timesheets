@@ -122,6 +122,29 @@ describe("storage-core", () => {
     expect(core.mergeDefaults({ version: 7, settings: {} }).settings.askComment).toBe(true);
   });
 
+  it("defaults the client field by Jira URL and keeps the user's choice", () => {
+    expect(core.defaultClientField("https://ows-jira.spb.openwaygroup.com")).toBe("customfield_11000");
+    expect(core.defaultClientField("https://jira.example.com")).toBe("customfield_10703");
+    const merged = core.mergeDefaults({
+      version: 7,
+      settings: {
+        jiraConnections: [
+          { id: "a", baseUrl: "https://ows-jira.spb.openwaygroup.com" },
+          { id: "b", baseUrl: "https://acme.atlassian.net" },
+          { id: "c", baseUrl: "https://acme.atlassian.net", clientField: " customfield_12345 " },
+          { id: "d", baseUrl: "https://acme.atlassian.net", clientField: "" }
+        ]
+      }
+    });
+    expect(merged.settings.jiraConnections.map((item) => item.clientField)).toEqual([
+      "customfield_11000",
+      "customfield_10703",
+      "customfield_12345",
+      ""
+    ]);
+    expect(core.defaultData().settings.jiraConnections[0].clientField).toBe("customfield_10703");
+  });
+
   it("has the default allocation categories and cleans edited ones", () => {
     const rules = core.defaultData().settings.allocationRules;
     expect(rules.map((rule) => rule.name)).toEqual(["Support", "Implementation", "SME", "Academy", "Apollo"]);

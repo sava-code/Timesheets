@@ -1,7 +1,6 @@
 const { decryptToken } = require("./storage.cjs");
 const core = require("./jira-core.cjs");
 
-const ISSUE_FIELDS = ["summary", "project", "status", "issuetype"];
 const REQUEST_TIMEOUT_MS = 30000;
 
 async function jiraRequest(connection, path, options = {}) {
@@ -65,7 +64,7 @@ function getMyself(connection) {
   return jiraRequest(connection, `/rest/api/${core.apiVersion(connection)}/myself`, { method: "GET" });
 }
 
-async function searchAllIssues(connection, jql, fields = ISSUE_FIELDS, limit = 5000) {
+async function searchAllIssues(connection, jql, fields = core.issueFields(connection), limit = 5000) {
   const version = core.apiVersion(connection);
   const issues = [];
 
@@ -253,7 +252,7 @@ const FREE_SEARCH_LIMIT = 1000;
 
 /** Issues for a free JQL (search box or free filter). Capped so a broad query stays usable. */
 async function searchIssues(connection, jql) {
-  const raw = await searchAllIssues(connection, jql, ISSUE_FIELDS, FREE_SEARCH_LIMIT);
+  const raw = await searchAllIssues(connection, jql, core.issueFields(connection), FREE_SEARCH_LIMIT);
   return {
     issues: await withTypeIcons(connection, raw.slice(0, FREE_SEARCH_LIMIT).map((issue) => core.toIssue(connection, issue))),
     truncated: raw.length >= FREE_SEARCH_LIMIT

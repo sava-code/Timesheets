@@ -154,6 +154,18 @@ function toWorklog(issueKey, raw) {
   };
 }
 
+/** Readable text of a custom field value: text, select option, user/object with a name, or a list of them. */
+function fieldText(value) {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.map(fieldText).filter(Boolean).join(", ");
+  if (typeof value === "object") {
+    const text = value.value ?? value.name ?? value.displayName ?? value.key ?? "";
+    const child = value.child ? fieldText(value.child) : "";
+    return [fieldText(text), child].filter(Boolean).join(" / ");
+  }
+  return String(value).trim();
+}
+
 function toIssue(connection, raw) {
   const fields = raw.fields || {};
   return {
@@ -164,6 +176,7 @@ function toIssue(connection, raw) {
     projectKey: fields.project?.key || String(raw.key).split("-")[0],
     projectName: fields.project?.name || "",
     status: fields.status?.name || "",
+    client: connection.clientField ? fieldText(fields[connection.clientField]) : "",
     url: `${normalizeBaseUrl(connection.baseUrl)}/browse/${raw.key}`,
     issueType: fields.issuetype?.name || "",
     // Jira's URL for the issue type icon; replaced by a data: URL in the main process (it needs auth).
@@ -234,6 +247,14 @@ async function mapLimit(items, limit, worker) {
   return results;
 }
 
+const ISSUE_FIELDS = ["summary", "project", "status", "issuetype"];
+
+/** Issue fields to ask Jira for, plus the source's client field. */
+function issueFields(connection) {
+  const client = String(connection?.clientField || "").trim();
+  return client ? [...ISSUE_FIELDS, client] : [...ISSUE_FIELDS];
+}
+
 module.exports = {
   DEFAULT_BASE_JQL,
   adfComment,
@@ -248,6 +269,8 @@ module.exports = {
   buildAuthHeader,
   commentText,
   errorMessage,
+  fieldText,
+  issueFields,
   isOwnWorklog,
   jiraStarted,
   mapLimit,

@@ -12,6 +12,8 @@ export interface JiraConnection {
   authType: AuthType;
   email: string;
   extraJql: string;
+  /** Jira field with the issue's client, e.g. customfield_10703 ("" = none) */
+  clientField: string;
   enabled: boolean;
   tokenPresent?: boolean;
   /** Only sent to the main process when the user typed a new secret. */
@@ -93,6 +95,8 @@ export interface Issue {
   /** Jira project name, e.g. "Custom Development" (for the allocation categories) */
   projectName?: string;
   status: string;
+  /** Client from the source's client field ("" when not set) */
+  client?: string;
   url: string;
   /** Issue type name, e.g. "Bug" */
   issueType?: string;

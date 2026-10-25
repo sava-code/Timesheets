@@ -29,6 +29,7 @@ import {
   qualityMessage,
   worklogQuality,
   worklogAllocation,
+  topClients,
   planCellEdit,
   updateSourceWorklogs,
   visibleDays,
@@ -84,6 +85,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   const [month, setMonth] = useState(currentMonth());
   const [result, setResult] = useState<MonthResult | null>(null);
   const allocation = useMemo(() => worklogAllocation(result, settings.allocationRules), [result, settings.allocationRules]);
+  const clients = useMemo(() => topClients(result, 5), [result]);
   const [loading, setLoading] = useState(false);
   const [filterId, setFilterId] = useState("all");
   // Narrowing filter: rows of the base list that match its JQL (ids null = could not be applied).
@@ -890,7 +892,12 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
       </div>
 
       <div onMouseOver={onGridMouseOver} onMouseLeave={hideTip}>
-        <AllocationChart shares={allocation} format={format} categories={settings.allocationRules.map((rule) => rule.name)} />
+        <AllocationChart
+          allocation={allocation}
+          clients={clients}
+          format={format}
+          categories={settings.allocationRules.map((rule) => rule.name)}
+        />
       </div>
 
       {tip && (

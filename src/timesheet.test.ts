@@ -10,6 +10,7 @@ import {
   allocationCategory,
   DEFAULT_ALLOCATION_RULES,
   worklogAllocation,
+  topClients,
   baseSources,
   buildRows,
   dayTotals,
@@ -294,5 +295,27 @@ describe("worklog allocation", () => {
       ["Other", 900, 6.67]
     ]);
     expect(worklogAllocation(null, rules)).toEqual([]);
+  });
+});
+
+describe("topClients", () => {
+  it("lists up to N clients by logged time, as a share of all time in the month", () => {
+    const withClients = (clients: Record<string, string>): MonthResult => ({
+      ...result,
+      sources: result.sources.map((source) => ({
+        ...source,
+        issues: source.issues.map((item) => ({ ...item, client: clients[`${source.sourceId}:${item.key}`] || "" }))
+      }))
+    });
+    // a:SUP-10 2h, a:SUP-9 1.5h, b:SUP-9 15m (no client) = 3.75h in all.
+    const month = withClients({ "a:SUP-10": "Acme", "a:SUP-9": "Globex" });
+    expect(topClients(month).map((share) => [share.name, share.seconds, Math.round(share.percent * 100) / 100])).toEqual([
+      ["Acme", 7200, 53.33],
+      ["Globex", 5400, 40]
+    ]);
+    expect(topClients(month, 1).map((share) => share.name)).toEqual(["Acme"]);
+    // The same client in two Jiras adds up.
+    expect(topClients(withClients({ "a:SUP-10": "Acme", "b:SUP-9": "Acme" }))[0].seconds).toBe(8100);
+    expect(topClients(null)).toEqual([]);
   });
 });

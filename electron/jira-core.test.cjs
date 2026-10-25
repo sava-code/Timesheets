@@ -54,6 +54,19 @@ describe("jira-core", () => {
     expect(core.isTrustedIconUrl(connection, "not a url")).toBe(false);
   });
 
+  it("reads the client from the source's client field and asks Jira for it", () => {
+    const connection = { id: "s", name: "S", baseUrl: "https://jira.example.com", clientField: "customfield_10703" };
+    const client = (value) => core.toIssue(connection, { key: "SUP-1", fields: { summary: "x", customfield_10703: value } }).client;
+    expect(client("Acme Bank ")).toBe("Acme Bank");
+    expect(client({ value: "Acme Bank", id: "1" })).toBe("Acme Bank");
+    expect(client({ value: "Acme", child: { value: "Retail" } })).toBe("Acme / Retail");
+    expect(client([{ value: "Acme" }, { name: "Globex" }])).toBe("Acme, Globex");
+    expect(client(null)).toBe("");
+    expect(core.toIssue({ ...connection, clientField: "" }, { key: "SUP-1", fields: { customfield_10703: "Acme" } }).client).toBe("");
+    expect(core.issueFields(connection)).toEqual(["summary", "project", "status", "issuetype", "customfield_10703"]);
+    expect(core.issueFields({ clientField: " " })).toEqual(["summary", "project", "status", "issuetype"]);
+  });
+
   it("adds the comment to a new worklog: plain text on Server, ADF on Cloud", () => {
     const server = core.newWorklogBody({ apiVersion: "2" }, { date: "2026-10-05", startTime: "09:00", seconds: 5400, comment: " Call with client " });
     expect(server).toMatchObject({ timeSpentSeconds: 5400, comment: "Call with client" });
