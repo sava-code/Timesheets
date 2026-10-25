@@ -421,6 +421,8 @@ describe("Timesheet grid", () => {
     // Demo worklogs are mostly logged the same day, some 1-3 days later.
     expect(indicators[0].querySelector(".indicatorValue")!.textContent).toMatch(/^\d{1,3}%$/);
     expect(indicators[0].title).toMatch(/weighted by time/);
+    expect(indicators[0].title).toMatch(/up to 3 working days: 100%/);
+    expect(indicators[0].querySelector(".indicatorValue")!.textContent).toMatch(/^(100|90|70|50|30|10)%$/);
     expect(indicators[1].querySelector(".indicatorLabel")!.textContent).toMatch(/Left to log|All logged|over the norm/);
   });
 

@@ -107,28 +107,64 @@ export function filterRows(rows: Row[], matched: Set<string> | null, search: str
   });
 }
 
-/** Whole calendar days between two YYYY-MM-DD dates (b - a). */
-function daysBetween(a: string, b: string): number {
+/**
+ * Working days (Mon-Fri) from date `a` to date `b` (YYYY-MM-DD): the weekdays after `a` up to and
+ * including `b`. A Friday worklog entered on Monday is 1 working day late. 0 if `b` is not after `a`.
+ */
+export function workingDaysBetween(a: string, b: string): number {
   const [ya, ma, da] = a.split("-").map(Number);
   const [yb, mb, db] = b.split("-").map(Number);
-  return Math.round((Date.UTC(yb, mb - 1, db) - Date.UTC(ya, ma - 1, da)) / 86_400_000);
+  const start = Date.UTC(ya, ma - 1, da);
+  const end = Date.UTC(yb, mb - 1, db);
+  if (!(end > start)) return 0;
+  const totalDays = Math.round((end - start) / 86_400_000);
+  const fullWeeks = Math.floor(totalDays / 7);
+  let count = fullWeeks * 5;
+  // The remaining days after the full weeks
+  const startDow = new Date(start).getUTCDay();
+  for (let offset = 1; offset <= totalDays - fullWeeks * 7; offset++) {
+    const dow = (startDow + offset) % 7;
+    if (dow !== 0 && dow !== 6) count += 1;
+  }
+  return count;
 }
 
 export interface Quality {
-  /** 0-100; 100 = every worklog entered on its own day */
+  /** One of the QUALITY_SCALE levels */
   percent: number;
-  /** Time-weighted average delay between the worklog's day and the day it was entered, in days */
+  /** Time-weighted average delay between the worklog's date and the day it was entered, in working days */
   averageDelay: number;
   count: number;
 }
 
-/** Points lost per day of average delay. */
-export const QUALITY_PENALTY_PER_DAY = 10;
+/** Average delay in working days (up to and including `maxDays`) and the quality it gives. */
+export const QUALITY_SCALE: Array<{ maxDays: number; percent: number }> = [
+  { maxDays: 3, percent: 100 },
+  { maxDays: 5, percent: 90 },
+  { maxDays: 10, percent: 70 },
+  { maxDays: 15, percent: 50 },
+  { maxDays: 20, percent: 30 },
+  { maxDays: Infinity, percent: 10 }
+];
+
+export function qualityForDelay(averageDelay: number): number {
+  return (QUALITY_SCALE.find((level) => averageDelay <= level.maxDays) || QUALITY_SCALE[QUALITY_SCALE.length - 1]).percent;
+}
+
+/** The scale as text, for the indicator's hint. */
+export function qualityScaleText(): string {
+  let previous = 0;
+  return QUALITY_SCALE.map(({ maxDays, percent }) => {
+    const range = previous === 0 ? `up to ${maxDays}` : maxDays === Infinity ? `over ${previous}` : `${previous}–${maxDays}`;
+    previous = maxDays;
+    return `${range} working days: ${percent}%`;
+  }).join("\n");
+}
 
 /**
- * Logging quality: the time-weighted average number of days between a worklog's date and the day
- * it was entered in Jira. 0 days = 100%; each day of average delay costs 10 points (min 0%).
- * Worklogs entered in advance count as 0 days late; worklogs without a creation date are skipped.
+ * Logging quality: the time-weighted average number of working days between a worklog's date and the
+ * day it was entered in Jira, placed on QUALITY_SCALE. Worklogs entered in advance count as 0 days
+ * late; worklogs without a creation date are skipped.
  */
 export function worklogQuality(worklogs: Worklog[]): Quality | null {
   let weight = 0;
@@ -137,24 +173,23 @@ export function worklogQuality(worklogs: Worklog[]): Quality | null {
   for (const worklog of worklogs) {
     const created = String(worklog.created || "").slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(created) || worklog.seconds <= 0) continue;
-    const delay = Math.max(0, daysBetween(worklog.date, created));
+    const delay = workingDaysBetween(worklog.date, created);
     weight += worklog.seconds;
     weightedDelay += delay * worklog.seconds;
     count += 1;
   }
   if (!weight) return null;
   const averageDelay = weightedDelay / weight;
-  const percent = Math.max(0, Math.min(100, Math.round(100 - averageDelay * QUALITY_PENALTY_PER_DAY)));
-  return { percent, averageDelay, count };
+  return { percent: qualityForDelay(averageDelay), averageDelay, count };
 }
 
-/** A short motivating line for a quality percentage. */
+/** A short motivating line for each quality level. */
 export function qualityMessage(percent: number): string {
   if (percent >= 100) return "You are the best!";
-  if (percent >= 90) return "Excellent, almost always on time";
-  if (percent >= 75) return "Good, keep it up";
-  if (percent >= 50) return "Try to log on the same day";
-  if (percent >= 25) return "Logging is falling behind";
+  if (percent >= 90) return "Excellent, almost on time";
+  if (percent >= 70) return "Good, but try to log sooner";
+  if (percent >= 50) return "Logging is falling behind";
+  if (percent >= 30) return "Time to catch up";
   return "Catch up and log daily";
 }
 

@@ -25,7 +25,7 @@ import {
   keysBySource,
   matchedRowIds,
   MIN_WORKLOG_SECONDS,
-  QUALITY_PENALTY_PER_DAY,
+  qualityScaleText,
   qualityMessage,
   worklogQuality,
   planCellEdit,
@@ -633,9 +633,9 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
           className={["indicator", quality ? qualityClass(quality.percent) : ""].join(" ")}
           title={
             quality
-              ? `Logging quality: worklogs are entered on average ${quality.averageDelay.toFixed(1)} day(s) after their date ` +
-                `(weighted by time, ${quality.count} worklogs). Same day = 100%, each day later costs ${QUALITY_PENALTY_PER_DAY}%.`
-              : "Logging quality: no worklogs this month yet"
+              ? `Logging quality: worklogs are entered on average ${quality.averageDelay.toFixed(1)} working day(s) after ` +
+                `their date (weighted by time, ${quality.count} worklogs this month).\n\nAverage delay:\n${qualityScaleText()}`
+              : `Logging quality: no worklogs this month yet.\n\nAverage delay:\n${qualityScaleText()}`
           }
         >
           <span className="indicatorValue">{quality ? `${quality.percent}%` : "—"}</span>

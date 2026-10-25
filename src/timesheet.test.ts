@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { MonthResult, Worklog } from "./types";
 import {
+  qualityForDelay,
   qualityMessage,
+  qualityScaleText,
+  workingDaysBetween,
   worklogQuality,
   absenceDays,
   baseSources,
@@ -118,38 +121,43 @@ describe("buildRows", () => {
 describe("worklogQuality", () => {
   const logged = (date: string, created: string, seconds = 3600) => ({ ...wl("1", date, seconds), created });
 
-  it("is 100% when every worklog is entered on its own day", () => {
-    expect(worklogQuality([logged("2026-10-05", "2026-10-05T18:00:00.000+0200"), logged("2026-10-06", "2026-10-06T09:30:00.000+0200")])).toEqual({
-      percent: 100,
-      averageDelay: 0,
-      count: 2
-    });
+  it("counts working days, skipping weekends", () => {
+    expect(workingDaysBetween("2026-10-09", "2026-10-12")).toBe(1); // Fri -> Mon
+    expect(workingDaysBetween("2026-10-05", "2026-10-05")).toBe(0); // same day
+    expect(workingDaysBetween("2026-10-05", "2026-10-19")).toBe(10); // two weeks
+    expect(workingDaysBetween("2026-10-10", "2026-10-11")).toBe(0); // Sat -> Sun
+    expect(workingDaysBetween("2026-10-09", "2026-10-05")).toBe(0); // entered in advance
   });
 
-  it("weights the delay by logged time and loses 10 points per day", () => {
-    // 6h on time, 2h entered 4 days later: (0*6 + 4*2) / 8 = 1 day -> 90%
+  it("places the time-weighted average delay on the scale", () => {
+    const at = (delayDays: number) => qualityForDelay(delayDays);
+    expect([0, 3, 3.1, 5, 5.5, 10, 12, 15, 18, 20, 21, 60].map(at)).toEqual([100, 100, 90, 90, 70, 70, 50, 50, 30, 30, 10, 10]);
+    // 6h entered the same day, 2h entered 16 working days later: (0*6 + 16*2) / 8 = 4 -> 90%
     const quality = worklogQuality([
-      logged("2026-10-05", "2026-10-05T18:00:00.000+0200", 6 * 3600),
-      logged("2026-10-05", "2026-10-09T10:00:00.000+0200", 2 * 3600)
+      logged("2026-10-01", "2026-10-01T18:00:00.000+0200", 6 * 3600),
+      logged("2026-10-01", "2026-10-23T10:00:00.000+0200", 2 * 3600)
     ])!;
-    expect(quality.averageDelay).toBe(1);
+    expect(quality.averageDelay).toBe(4);
     expect(quality.percent).toBe(90);
-    expect(worklogQuality([logged("2026-10-01", "2026-10-31T10:00:00.000+0200")])!.percent).toBe(0);
   });
 
-  it("counts worklogs entered in advance as on time and skips unknown creation dates", () => {
-    expect(worklogQuality([logged("2026-10-09", "2026-10-05T10:00:00.000+0200")])!.percent).toBe(100);
+  it("is 100% within 3 working days and ignores unknown creation dates", () => {
+    expect(worklogQuality([logged("2026-10-09", "2026-10-14T09:00:00.000+0200")])!.percent).toBe(100); // Fri -> Wed = 3
     expect(worklogQuality([{ ...wl("1", "2026-10-05", 3600), created: "" }])).toBeNull();
     expect(worklogQuality([])).toBeNull();
   });
 
-  it("has a motivating line for every level", () => {
+  it("describes the scale and has a line for every level", () => {
+    expect(qualityScaleText().split("\n")).toEqual([
+      "up to 3 working days: 100%",
+      "3–5 working days: 90%",
+      "5–10 working days: 70%",
+      "10–15 working days: 50%",
+      "15–20 working days: 30%",
+      "over 20 working days: 10%"
+    ]);
     expect(qualityMessage(100)).toBe("You are the best!");
-    expect(qualityMessage(95)).toMatch(/Excellent/);
-    expect(qualityMessage(80)).toMatch(/Good/);
-    expect(qualityMessage(60)).toMatch(/same day/);
-    expect(qualityMessage(30)).toMatch(/behind/);
-    expect(qualityMessage(0)).toMatch(/Catch up/);
+    expect(new Set([100, 90, 70, 50, 30, 10].map(qualityMessage)).size).toBe(6);
   });
 });
 
