@@ -1,7 +1,7 @@
 {
   "name": "timesheets",
   "productName": "Timesheets",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "private": true,
   "description": "Desktop app for viewing and editing your monthly Jira worklogs in a spreadsheet-like grid.",
   "author": "sava-code",
@@ -80,12 +80,6 @@
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "universal"
-          ]
-        },
-        {
-          "target": "zip",
           "arch": [
             "universal"
           ]

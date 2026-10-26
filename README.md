@@ -81,7 +81,7 @@ npm test           # unit + UI tests (Vitest)
 ```bash
 npm run dist           # Windows portable   → release/Timesheets-<version>-portable.exe (no install needed)
 npm run dist:installer # Windows installer  → release/Timesheets-<version>-setup.exe
-npm run dist:mac       # macOS dmg + zip (run on a Mac)
+npm run dist:mac       # macOS dmg (run on a Mac)
 ```
 
 The GitHub Actions workflow `.github/workflows/build.yml` builds the Windows portable .exe and the macOS installers when you push a `v*` tag, and attaches them to the release. You can also run it manually.
