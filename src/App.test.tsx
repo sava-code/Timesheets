@@ -617,10 +617,61 @@ describe("Timesheet grid", () => {
     expect(screen.getByLabelText(issueLink("INT-15"))).toBeInTheDocument();
   });
 
+  it("runs a filter on its own Jira source only, while presets use every source", async () => {
+    const user = userEvent.setup();
+    const api = window.timesheets;
+    const original = await api.loadData();
+    await api.saveData({
+      ...original,
+      settings: {
+        ...original.settings,
+        filters: [
+          { id: "ops", label: "Ops", jql: "project = OPS", free: false, sourceId: "main" },
+          { id: "viewed-recently", label: "Viewed recently", jql: "issuekey in issueHistory()", free: true, sourceId: "" }
+        ]
+      }
+    });
+    render(<App />);
+    await screen.findByLabelText(issueLink("OPS-501")); // logged in Client Jira
+    // On Delivery Jira the filter finds nothing: OPS-501 lives in Client Jira.
+    await user.click(screen.getByRole("radio", { name: "Ops" }));
+    await screen.findByText("No issues match this filter.");
+
+    await user.click(screen.getByRole("button", { name: /settings/i }));
+    await user.click(await screen.findByRole("tab", { name: "Filters" }));
+    expect(screen.getByLabelText("Jira source for All")).toBeDisabled();
+    expect(screen.getByLabelText("Jira source for Viewed recently")).toBeDisabled();
+    const source = screen.getByLabelText("Jira source for Ops");
+    expect(source).toHaveValue("main");
+    // "All": a common filter for every configured Jira.
+    expect([...source.querySelectorAll("option")].map((option) => option.textContent)).toEqual(["All", "Delivery Jira", "Client Jira"]);
+    await user.selectOptions(source, "client");
+    await user.click(screen.getByRole("button", { name: /save settings/i }));
+    await screen.findByText("Settings saved.");
+    expect((await api.loadData()).settings.filters[0].sourceId).toBe("client");
+    await user.click(screen.getByRole("button", { name: /timesheet/i }));
+    await waitFor(() => expect(screen.queryByLabelText(issueLink("INT-15"))).not.toBeInTheDocument());
+    expect(screen.getByLabelText(issueLink("OPS-501"))).toBeInTheDocument();
+  });
+
+  it("runs a free filter only on its Jira source", async () => {
+    const search = vi.spyOn(window.timesheets, "searchIssues");
+    const user = userEvent.setup();
+    const original = await window.timesheets.loadData();
+    await window.timesheets.saveData({
+      ...original,
+      settings: { ...original.settings, filters: [{ id: "f", label: "Mine", jql: "project = OPS", free: true, sourceId: "client" }] }
+    });
+    render(<App />);
+    await screen.findByLabelText(issueLink("INT-15"));
+    await user.click(screen.getByRole("radio", { name: "Mine" }));
+    await waitFor(() => expect(search).toHaveBeenCalledWith("project = OPS", "client"));
+  });
+
   it("reports a broken filter JQL and falls back to All", async () => {
     const api = window.timesheets;
     const original = await api.loadData();
-    await api.saveData({ ...original, settings: { ...original.settings, filters: [{ id: "bad", label: "Broken", jql: "status = !!", free: false }] } });
+    await api.saveData({ ...original, settings: { ...original.settings, filters: [{ id: "bad", label: "Broken", jql: "status = !!", free: false, sourceId: "" }] } });
     const user = userEvent.setup();
     render(<App />);
     await screen.findByLabelText(issueLink("INT-15"));

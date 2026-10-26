@@ -867,7 +867,7 @@ label.check.standalone {
 
 .filterRow {
   display: grid;
-  grid-template-columns: 22px 220px 1fr auto 32px;
+  grid-template-columns: 22px 170px 150px 1fr auto 32px;
   align-items: center;
   gap: 8px;
   margin-top: 8px;
@@ -1741,4 +1741,18 @@ label.check.standalone {
 
 .freeCheck {
   font-size: 14px;
+}
+
+.filterRow select {
+  min-width: 0;
+  font-size: 14px;
+}
+
+/* All and the presets always use every source: shown like the fixed "All" label */
+.filterRow select:disabled {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+  opacity: 1;
+  cursor: default;
 }

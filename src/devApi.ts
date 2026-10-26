@@ -157,10 +157,10 @@ export function createDevApi(
         toField: "customfield_10801"
       },
       filters: [
-        { id: "f1", label: "Support", jql: "project = SUP", free: false },
-        { id: "f2", label: "Implementation", jql: "project = IMPL", free: false },
-        { id: "f3", label: "SME", jql: "project in (ARCH, BA)", free: false },
-        { id: "f4", label: "All support", jql: "project = SUP AND resolution = Unresolved", free: true }
+        { id: "f1", label: "Support", jql: "project = SUP", free: false, sourceId: "" },
+        { id: "f2", label: "Implementation", jql: "project = IMPL", free: false, sourceId: "" },
+        { id: "f3", label: "SME", jql: "project in (ARCH, BA)", free: false, sourceId: "" },
+        { id: "f4", label: "All support", jql: "project = SUP AND resolution = Unresolved", free: true, sourceId: "" }
       ],
       jiraConnections: [
         { id: "main", name: "Delivery Jira", baseUrl: "https://jira.example.com", apiVersion: "2", authType: "bearer", email: "", extraJql: "filter = worklogs", clientField: "customfield_10703", enabled: true, tokenPresent: true },
@@ -224,7 +224,7 @@ export function createDevApi(
       };
     },
     // Demo only: explicit keys (SUP-1, IMPL-2) or project names in the JQL; "!!" is a JQL error.
-    searchIssues: async (jql) => {
+    searchIssues: async (jql, onlySource) => {
       await delay(400);
       if (/!!/.test(jql)) {
         return {
@@ -240,7 +240,7 @@ export function createDevApi(
         ? keys.map((key) => pool.find(([, k]) => k === key) || (["main", key, `Issue ${key}`] as [string, string, string]))
         : pool.filter(([, key]) => words.has(key.split("-")[0]));
       const sources = data.settings.jiraConnections
-        .filter((connection) => connection.enabled)
+        .filter((connection) => connection.enabled && (!onlySource || connection.id === onlySource))
         .map((connection) => ({
           sourceId: connection.id,
           sourceName: connection.name,

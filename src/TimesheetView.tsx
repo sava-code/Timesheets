@@ -180,18 +180,20 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   const allChip = { id: "all", label: "All", ...settings.allFilter };
   const chips = [allChip, ...settings.filters];
   const chip = chips.find((item) => item.id === filterId) || allChip;
+  // A filter can belong to one Jira source; the JQL search box and All run on every source.
+  const chipSource = "sourceId" in chip ? String(chip.sourceId || "") : "";
+  const filterSource = !searchJql && activeSources.some((item) => item.id === chipSource) ? chipSource : "";
   const freeJql = searchJql || (chip.free && chip.jql ? chip.jql : "");
   const narrowJql = !searchJql && !chip.free && chip.jql ? chip.jql : "";
   const freeLabel = searchJql ? "JQL search" : `Filter "${chip.label}"`;
 
-  const freeKey = freeJql && result ? `${freeJql}|${loadCount}` : "";
+  const freeKey = freeJql && result ? `${freeJql}|${filterSource}|${loadCount}` : "";
   const freeReady = Boolean(freeKey && freeResult?.key === freeKey);
 
   useEffect(() => {
     if (!freeKey) return;
     let cancelled = false;
-    api()
-      .searchIssues(freeJql)
+    (filterSource ? api().searchIssues(freeJql, filterSource) : api().searchIssues(freeJql))
       .then((search) => {
         if (cancelled) return;
         // One Jira rejecting the JQL (e.g. unknown project there) is normal with several sources.
@@ -236,7 +238,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   );
 
   const rowIdsSignature = allRows.map((row) => row.id).join(",");
-  const matchKey = narrowJql ? `${chip.id}|${narrowJql}|${loadCount}|${rowIdsSignature}` : "";
+  const matchKey = narrowJql ? `${chip.id}|${narrowJql}|${filterSource}|${loadCount}|${rowIdsSignature}` : "";
   const narrowReady = Boolean(matchKey && filterMatch?.key === matchKey);
   const narrowLoading = Boolean(matchKey) && allRows.length > 0 && !narrowReady;
   const freeLoading = Boolean(freeJql) && !freeReady;
@@ -254,7 +256,8 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
       if (chip.id !== "all") setFilterId("all");
     };
     api()
-      .matchFilter(narrowJql, keysBySource(allRows))
+      // A filter of one source only checks that source's rows; the others don't match.
+      .matchFilter(narrowJql, keysBySource(filterSource ? allRows.filter((row) => row.issue.sourceId === filterSource) : allRows))
       .then((match) => {
         if (cancelled) return;
         if (match.errors.length) {

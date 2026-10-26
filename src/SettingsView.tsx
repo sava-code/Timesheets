@@ -66,6 +66,9 @@ function previewBaseJql(template: string): string {
 export const defaultClientField = (baseUrl: string) =>
   baseUrl.toLowerCase().includes("ows-jira.spb.") ? "customfield_11000" : "customfield_10703";
 
+/** The preset filters (Viewed recently, My open tickets) always run on every Jira source. */
+const COMMON_FILTER_IDS = ["viewed-recently", "my-open-tickets"];
+
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 function newConnection(index: number): JiraConnection {
@@ -438,14 +441,15 @@ export function SettingsView({ data, onSaved }: Props) {
                       Quick filters above the timesheet, each defined by a JQL such as <code>project in (SUP, OPS)</code>.
                       By default a filter narrows the base list (issues with your worklogs this month and the sources' extra
                       JQL). Tick <strong>Free</strong> to show exactly the issues its JQL returns instead, so you can log time
-                      on issues you haven't logged on yet.
+                      on issues you haven't logged on yet. A filter can run on one Jira source only; All and the presets run on
+                      every source.
                     </p>
                   </div>
                   <button
                     className="secondary"
                     onClick={() => {
                       const id = newId("filter");
-                      setDraft((current) => ({ ...current, filters: [...current.filters, { id, label: "", jql: "", free: false }] }));
+                      setDraft((current) => ({ ...current, filters: [...current.filters, { id, label: "", jql: "", free: false, sourceId: "" }] }));
                     }}
                   >
                     <Plus size={15} /> Add filter
@@ -483,6 +487,9 @@ export function SettingsView({ data, onSaved }: Props) {
                 <div className="filterRow">
                   <span />
                   <span className="fixedLabel" title="The default view. It always stays first.">All</span>
+                  <select disabled aria-label="Jira source for All" title="All always runs on every Jira source">
+                    <option>All</option>
+                  </select>
                   <input
                     value={draft.allFilter.jql}
                     placeholder="Optional JQL. Empty: issues with your worklogs this month"
@@ -527,6 +534,25 @@ export function SettingsView({ data, onSaved }: Props) {
                       placeholder="Label, e.g. Support"
                       onChange={(event) => patchFilter(filter.id, { label: event.target.value })}
                     />
+                    {COMMON_FILTER_IDS.includes(filter.id) ? (
+                      <select disabled aria-label={`Jira source for ${filter.label || "filter"}`} title="This preset runs on every Jira source">
+                        <option>All</option>
+                      </select>
+                    ) : (
+                      <select
+                        aria-label={`Jira source for ${filter.label || "filter"}`}
+                        title="The Jira this filter runs on"
+                        value={draft.jiraConnections.some((item) => item.id === filter.sourceId) ? filter.sourceId : ""}
+                        onChange={(event) => patchFilter(filter.id, { sourceId: event.target.value })}
+                      >
+                        <option value="">All</option>
+                        {draft.jiraConnections.map((connection) => (
+                          <option key={connection.id} value={connection.id}>
+                            {connection.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <input
                       value={filter.jql}
                       placeholder="JQL, e.g. project in (SUP, OPS) AND labels = support"

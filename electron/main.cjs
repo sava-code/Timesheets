@@ -104,9 +104,10 @@ ipcMain.handle("jira:fetchMonth", async (_event, month) => {
   return { month, sources, errors, configured: connections.length, absences, absenceErrors };
 });
 
-// Free JQL (search box or free filter): the issues it returns on every enabled source.
-ipcMain.handle("jira:searchIssues", async (_event, jql) => {
-  const connections = activeConnections(readRawData());
+// Free JQL (search box or free filter): the issues it returns on every enabled source,
+// or only on the filter's own source.
+ipcMain.handle("jira:searchIssues", async (_event, jql, sourceId) => {
+  const connections = activeConnections(readRawData()).filter((connection) => !sourceId || connection.id === sourceId);
   const sources = [];
   const errors = [];
   await Promise.all(

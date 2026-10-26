@@ -59,12 +59,13 @@ describe("storage-core", () => {
   it("starts with the default free filters and adds them once to older settings", () => {
     const presets = core.defaultData().settings.filters;
     expect(presets).toEqual([
-      { id: "viewed-recently", label: "Viewed recently", jql: "issuekey in issueHistory() order by lastViewed DESC", free: true },
+      { id: "viewed-recently", label: "Viewed recently", jql: "issuekey in issueHistory() order by lastViewed DESC", free: true, sourceId: "" },
       {
         id: "my-open-tickets",
         label: "My open tickets",
         jql: "assignee = currentUser() AND resolution = Unresolved order by updated DESC",
-        free: true
+        free: true,
+        sourceId: ""
       }
     ]);
     // Version 3 user with their own filters, one of them already the same JQL: only the missing one is added, at the end.
@@ -152,6 +153,14 @@ describe("storage-core", () => {
     expect(core.defaultData().settings.showTypeIcons).toBe(true);
     expect(core.mergeDefaults({ version: 7, settings: {} }).settings.showTypeIcons).toBe(true);
     expect(core.mergeDefaults({ version: 7, settings: { showTypeIcons: false } }).settings.showTypeIcons).toBe(false);
+  });
+
+  it("keeps each filter's Jira source, every source by default", () => {
+    const filters = core.mergeDefaults({
+      version: 9,
+      settings: { filters: [{ id: "a", label: "A", jql: "x = 1", sourceId: " jira-2 " }, { id: "b", label: "B", jql: "y = 2" }] }
+    }).settings.filters;
+    expect(filters.map((filter) => filter.sourceId)).toEqual(["jira-2", ""]);
   });
 
   it("has the default allocation categories and cleans edited ones", () => {

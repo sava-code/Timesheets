@@ -39,6 +39,8 @@ export interface FilterGroup {
   jql: string;
   /** Free: the JQL alone decides which issues are shown. Otherwise it narrows the base list. */
   free: boolean;
+  /** The Jira source the filter runs on; "" = every source. */
+  sourceId: string;
 }
 
 /** The "All" chip. Empty JQL shows the base list. */
@@ -190,7 +192,8 @@ export interface TimesheetsApi {
   saveData: (data: AppData) => Promise<AppData>;
   fetchMonth: (month: string) => Promise<MonthResult>;
   /** Issues returned by a free JQL on every enabled source. */
-  searchIssues: (jql: string) => Promise<SearchResult>;
+  /** Runs the JQL on every enabled source, or only on sourceId when given. */
+  searchIssues: (jql: string, sourceId?: string) => Promise<SearchResult>;
   /** Which of the given issue keys (per source) match the JQL. */
   matchFilter: (jql: string, keysBySource: Record<string, string[]>) => Promise<FilterMatch>;
   createWorklog: (sourceId: string, payload: { issueKey: string; date: string; seconds: number; comment?: string }) => Promise<Worklog>;

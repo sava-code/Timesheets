@@ -40,13 +40,15 @@ const DEFAULT_FILTERS = [
     id: "viewed-recently",
     label: "Viewed recently",
     jql: "issuekey in issueHistory() order by lastViewed DESC",
-    free: true
+    free: true,
+    sourceId: ""
   },
   {
     id: "my-open-tickets",
     label: "My open tickets",
     jql: "assignee = currentUser() AND resolution = Unresolved order by updated DESC",
-    free: true
+    free: true,
+    sourceId: ""
   }
 ];
 
@@ -130,7 +132,9 @@ function normalizeFilter(filter) {
     label: String(filter?.label || "").trim() || "Filter",
     jql,
     // Free: the JQL alone decides which issues are shown. Otherwise it narrows the base list.
-    free: filter?.free === true
+    free: filter?.free === true,
+    // The Jira source the filter runs on; "" = every source.
+    sourceId: String(filter?.sourceId || "").trim()
   };
 }
 
