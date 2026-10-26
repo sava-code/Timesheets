@@ -434,31 +434,11 @@ export function SettingsView({ data, onSaved }: Props) {
           {tab === "filters" && (
             <>
               <section className="panel">
-                <div className="panelHead">
-                  <div>
-                    <h3>Filters</h3>
-                    <p>
-                      Quick filters above the timesheet, each defined by a JQL such as <code>project in (SUP, OPS)</code>.
-                      By default a filter narrows the base list (issues with your worklogs this month and the sources' extra
-                      JQL). Tick <strong>Free</strong> to show exactly the issues its JQL returns instead, so you can log time
-                      on issues you haven't logged on yet. A filter can run on one Jira source only; All and the presets run on
-                      every source.
-                    </p>
-                  </div>
-                  <button
-                    className="secondary"
-                    onClick={() => {
-                      const id = newId("filter");
-                      setDraft((current) => ({ ...current, filters: [...current.filters, { id, label: "", jql: "", free: false, sourceId: "" }] }));
-                    }}
-                  >
-                    <Plus size={15} /> Add filter
-                  </button>
-                </div>
                 <div className="baseJql">
-                  <label htmlFor="base-jql">
-                    Base JQL <span className="muted">— builds the base list: the issues shown under "All" and narrowed by filters</span>
-                  </label>
+                  <h3>
+                    <label htmlFor="base-jql">Base JQL</label>
+                  </h3>
+                  <p>Builds the base list: the issues shown under "All" and narrowed by quick filters.</p>
                   <div className="baseJqlRow">
                     <input
                       id="base-jql"
@@ -482,6 +462,25 @@ export function SettingsView({ data, onSaved }: Props) {
                     you are viewing, so the list follows the month. Your logged time is read from the issues this JQL returns.
                     For this month it runs: <code>{previewBaseJql(draft.baseJql)}</code>
                   </p>
+                </div>
+
+                <div className="panelHead quickFiltersHead">
+                  <div>
+                    <h3>Quick filters</h3>
+                    <p>
+                      JQL filters shown as chips above the timesheet. Each narrows the base list; tick <strong>Free</strong> to
+                      show exactly the issues its JQL returns instead.
+                    </p>
+                  </div>
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      const id = newId("filter");
+                      setDraft((current) => ({ ...current, filters: [...current.filters, { id, label: "", jql: "", free: false, sourceId: "" }] }));
+                    }}
+                  >
+                    <Plus size={15} /> Add filter
+                  </button>
                 </div>
 
                 <div className="filterRow">

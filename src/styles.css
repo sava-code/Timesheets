@@ -1756,3 +1756,28 @@ label.check.standalone {
   opacity: 1;
   cursor: default;
 }
+
+/* Filters tab: Base JQL first, then the Quick filters heading. */
+.baseJql {
+  margin: 0 0 22px;
+}
+
+.baseJql h3 {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.baseJql h3 label {
+  font: inherit;
+  color: inherit;
+}
+
+.baseJql > p {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.quickFiltersHead {
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
