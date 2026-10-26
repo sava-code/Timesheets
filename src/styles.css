@@ -1695,3 +1695,50 @@ label.check.standalone {
   display: flex;
   gap: 2px;
 }
+
+/* ---------------------------------------------------------------------------
+   Settings: one font and size for everything in a panel (no monospace), and lighter
+   descriptions.
+   --------------------------------------------------------------------------- */
+
+.panel p,
+.baseJql .hint,
+.ruleHead {
+  color: color-mix(in srgb, var(--muted) 75%, var(--surface));
+}
+
+.panel code,
+.baseJql code {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  font-weight: 500;
+}
+
+.baseJql {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.baseJql > label {
+  font-weight: 600;
+}
+
+.baseJqlRow input {
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.baseJqlRow button {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.baseJqlRow button:disabled {
+  color: var(--muted);
+}
+
+.freeCheck {
+  font-size: 14px;
+}

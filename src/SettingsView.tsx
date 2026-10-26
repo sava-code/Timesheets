@@ -562,7 +562,7 @@ export function SettingsView({ data, onSaved }: Props) {
                   <div>
                     <h3>Worklogs allocation</h3>
                     <p>
-                      Categories for the chart under the timesheet. Each worklog of the month goes to the first category its
+                      Categories for the allocation line under the timesheet. Each worklog of the month goes to the first category its
                       issue matches: by issue type, by project (name or key) or by text in the summary. Lists are
                       comma-separated and not case-sensitive. Everything else is <strong>Other</strong>.
                     </p>
