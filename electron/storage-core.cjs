@@ -97,14 +97,36 @@ function isCompanyDomain(name) {
   return domain === COMPANY_DOMAIN || domain.endsWith(`.${COMPANY_DOMAIN}`);
 }
 
+/** Search domains from `scutil --dns` output ("search domain[0] : spb.openwaygroup.com"). */
+function parseSearchDomains(output) {
+  return [...String(output || "").matchAll(/search domain\[\d+\]\s*:\s*(\S+)/gi)].map((match) => match[1]);
+}
+
+/** `profiles status -type enrollment` output: enrolled in the company MDM (Microsoft Intune). */
+function isCompanyMdm(output) {
+  const text = String(output || "");
+  const enrolled = /MDM enrollment:\s*Yes/i.test(text);
+  const server = /MDM server:\s*(\S+)/i.exec(text)?.[1] || "";
+  let host = "";
+  try {
+    host = new URL(server).hostname.toLowerCase();
+  } catch (_error) {
+    host = "";
+  }
+  return enrolled && (host === "manage.microsoft.com" || host.endsWith(".manage.microsoft.com"));
+}
+
 /**
- * A company computer: on Windows the user is logged on to the openwaygroup.com domain,
- * on macOS the device name starts with "OW".
+ * A company computer. Windows: the user is logged on to the openwaygroup.com domain.
+ * macOS: an openwaygroup.com DNS search domain or enrolment in the company MDM (Intune);
+ * as a backup, a device name starting with "OW".
  */
-function isCompanyComputer({ platform, dnsDomain = "", computerNames = [] } = {}) {
+function isCompanyComputer({ platform, dnsDomain = "", dnsSearchDomains = "", mdmEnrollment = "", computerNames = [] } = {}) {
   if (platform === "win32") return isCompanyDomain(dnsDomain);
-  if (platform === "darwin") return computerNames.some((name) => String(name || "").trim().startsWith("OW"));
-  return false;
+  if (platform !== "darwin") return false;
+  if (parseSearchDomains(dnsSearchDomains).some(isCompanyDomain)) return true;
+  if (isCompanyMdm(mdmEnrollment)) return true;
+  return computerNames.some((name) => String(name || "").trim().startsWith("OW"));
 }
 
 /** Settings for a first launch; company users get the Delivery and RnD Jira sources. */
@@ -353,6 +375,8 @@ module.exports = {
   initialData,
   isCompanyComputer,
   isCompanyDomain,
+  isCompanyMdm,
+  parseSearchDomains,
   mergeDefaults,
   normalizeIncomingData,
   normalizeKeys,

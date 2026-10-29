@@ -228,14 +228,45 @@ describe("storage-core", () => {
     ).toThrow(/Encrypted credential storage/);
   });
 
-  it("recognises company computers: openwaygroup.com domain on Windows, OW device name on macOS", () => {
+  const SCUTIL_DNS = `DNS configuration
+
+resolver #1
+  search domain[0] : spb.openwaygroup.com
+  search domain[1] : cdt.spb.openwaygroup.com
+  search domain[2] : ownet.oraclevcn.com
+  search domain[3] : openwaygroup.com
+  nameserver[0] : 10.0.0.1
+`;
+  const INTUNE = `Enrolled via DEP: No
+MDM enrollment: Yes (User Approved)
+MDM server: https://i.manage.microsoft.com/DeviceGatewayProxy/ioshandler.ashx?Platform=MacMDM
+`;
+
+  it("reads DNS search domains and the MDM enrolment", () => {
+    expect(core.parseSearchDomains(SCUTIL_DNS)).toEqual([
+      "spb.openwaygroup.com",
+      "cdt.spb.openwaygroup.com",
+      "ownet.oraclevcn.com",
+      "openwaygroup.com"
+    ]);
+    expect(core.isCompanyMdm(INTUNE)).toBe(true);
+    expect(core.isCompanyMdm(INTUNE.replace("Yes (User Approved)", "No"))).toBe(false);
+    expect(core.isCompanyMdm("MDM enrollment: Yes\nMDM server: https://mdm.example.com/server")).toBe(false);
+    expect(core.isCompanyMdm("MDM enrollment: Yes\nMDM server: https://manage.microsoft.com.evil.io/x")).toBe(false);
+    expect(core.isCompanyMdm("")).toBe(false);
+  });
+
+  it("recognises company computers: openwaygroup.com domain on Windows; DNS, MDM or OW name on macOS", () => {
     expect(core.isCompanyComputer({ platform: "win32", dnsDomain: "OPENWAYGROUP.COM" })).toBe(true);
     expect(core.isCompanyComputer({ platform: "win32", dnsDomain: "spb.openwaygroup.com" })).toBe(true);
     expect(core.isCompanyComputer({ platform: "win32", dnsDomain: "notopenwaygroup.com" })).toBe(false);
     expect(core.isCompanyComputer({ platform: "win32", dnsDomain: "openwaygroup.com.evil.io" })).toBe(false);
     expect(core.isCompanyComputer({ platform: "win32", dnsDomain: "" })).toBe(false);
-    expect(core.isCompanyComputer({ platform: "darwin", computerNames: ["OW-MAC-0123"] })).toBe(true);
-    expect(core.isCompanyComputer({ platform: "darwin", computerNames: ["Anna's MacBook", "OW1234.local"] })).toBe(true);
+    const mac = { platform: "darwin", computerNames: ["Anna's MacBook"] };
+    expect(core.isCompanyComputer({ ...mac, dnsSearchDomains: SCUTIL_DNS })).toBe(true);
+    expect(core.isCompanyComputer({ ...mac, mdmEnrollment: INTUNE })).toBe(true);
+    expect(core.isCompanyComputer({ ...mac, dnsSearchDomains: "search domain[0] : home.lan" })).toBe(false);
+    expect(core.isCompanyComputer({ platform: "darwin", computerNames: ["OW-TXTFVDTD2T"] })).toBe(true);
     expect(core.isCompanyComputer({ platform: "darwin", computerNames: ["Owen's MacBook", "MacBook-OW"] })).toBe(false);
     expect(core.isCompanyComputer({ platform: "linux", dnsDomain: "openwaygroup.com", computerNames: ["OW1"] })).toBe(false);
   });
