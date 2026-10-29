@@ -689,24 +689,15 @@ export function SettingsView({ data, onSaved }: Props) {
                     <h3>Absences</h3>
                     <p>
                       Days off registered as Jira issues (vacation, sick leave…). Their working days are left out of the norm
-                      and shown in light grey.
+                      and shown in light grey. Used when the JQL and both date fields are filled in; clear the JQL to turn
+                      absences off.
                     </p>
                   </div>
-                  <label className="check">
-                    <input
-                      type="checkbox"
-                      aria-label="Use absences"
-                      checked={draft.absences.enabled}
-                      onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, enabled: event.target.checked } })}
-                    />
-                    Use absences
-                  </label>
                 </div>
                 <div className="formGrid">
                   <label>
                     Jira source
                     <select
-                      disabled={!draft.absences.enabled}
                       value={draft.absences.sourceId}
                       onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, sourceId: event.target.value } })}
                     >
@@ -721,7 +712,7 @@ export function SettingsView({ data, onSaved }: Props) {
                   <label className="wide">
                     Absences JQL
                     <input
-                      disabled={!draft.absences.enabled}
+                      placeholder="Empty: absences are not used"
                       value={draft.absences.jql}
                       onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, jql: event.target.value } })}
                     />
@@ -730,7 +721,6 @@ export function SettingsView({ data, onSaved }: Props) {
                   <label>
                     "Leave from date" field id
                     <input
-                      disabled={!draft.absences.enabled}
                       value={draft.absences.fromField}
                       placeholder="customfield_10800"
                       onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, fromField: event.target.value } })}
@@ -739,7 +729,6 @@ export function SettingsView({ data, onSaved }: Props) {
                   <label>
                     "Leave to date" field id
                     <input
-                      disabled={!draft.absences.enabled}
                       value={draft.absences.toField}
                       placeholder="customfield_10801"
                       onChange={(event) => setDraft({ ...draft, absences: { ...draft.absences, toField: event.target.value } })}

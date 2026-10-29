@@ -317,10 +317,11 @@ describe("Timesheet grid", () => {
     // Absence days are never coloured as short days.
     expect(document.querySelectorAll("thead tr.totalsRow th.absent.under, thead tr.totalsRow th.absent.empty")).toHaveLength(0);
 
-    // Switching absences off restores the full norm.
+    // Clearing the absences JQL turns them off and restores the full norm.
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await user.click(await screen.findByRole("tab", { name: "Absences" }));
-    await user.click(await screen.findByLabelText("Use absences"));
+    expect(screen.queryByLabelText("Use absences")).not.toBeInTheDocument();
+    await user.clear(await screen.findByLabelText("Absences JQL"));
     await user.click(screen.getByRole("button", { name: /save settings/i }));
     await screen.findByText("Settings saved.");
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
@@ -430,7 +431,7 @@ describe("Timesheet grid", () => {
     ]);
     // Each tab shows only its own part.
     await user.click(screen.getByRole("tab", { name: "Absences" }));
-    expect(screen.getByLabelText("Use absences")).toBeInTheDocument();
+    expect(screen.getByLabelText("Absences JQL")).toBeInTheDocument();
     expect(screen.queryByLabelText("JQL for All")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "About & updates" }));

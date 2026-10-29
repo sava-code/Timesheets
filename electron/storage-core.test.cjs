@@ -43,7 +43,7 @@ describe("storage-core", () => {
     for (const version of [1, 2]) {
       const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, backgroundColor: "" } });
       expect(old.settings).toMatchObject(DEFAULT_LOOK);
-      expect(old.version).toBe(8);
+      expect(old.version).toBe(9);
     }
     // From version 3 on, the user's choice is kept.
     const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" } });
@@ -93,7 +93,6 @@ describe("storage-core", () => {
 
   it("defaults and validates the absence settings", () => {
     expect(core.defaultData().settings.absences).toEqual({
-      enabled: true,
       sourceId: "",
       jql: 'project = calendar AND Employee = currentUser() and type = "Absence Request"',
       fromField: "customfield_10800",
@@ -108,15 +107,24 @@ describe("storage-core", () => {
     expect(previous("project = calendar AND Employee = currentUser()", 6)).toBe("project = calendar AND Employee = currentUser()");
     const custom = core.mergeDefaults({
       version: 4,
-      settings: { absences: { enabled: false, sourceId: "b", jql: " ", fromField: "customfield_1", toField: "bad field; drop" } }
+      settings: { absences: { sourceId: "b", jql: " ", fromField: "customfield_1", toField: "bad field; drop" } }
     }).settings.absences;
-    expect(custom).toEqual({
-      enabled: false,
-      sourceId: "b",
-      jql: 'project = calendar AND Employee = currentUser() and type = "Absence Request"',
-      fromField: "customfield_1",
-      toField: "customfield_10801"
-    });
+    expect(custom).toEqual({ sourceId: "b", jql: "", fromField: "customfield_1", toField: "customfield_10801" });
+    expect(core.absencesConfigured(core.defaultData().settings.absences)).toBe(true);
+    expect(core.absencesConfigured(custom)).toBe(false);
+    expect(core.absencesConfigured({ ...core.defaultData().settings.absences, toField: "" })).toBe(false);
+  });
+
+  it("drops the absences switch: switched-off absences keep being off via an empty JQL", () => {
+    const jql = 'project = calendar AND Employee = currentUser() and type = "Absence Request"';
+    const off = core.mergeDefaults({ version: 8, settings: { absences: { enabled: false, jql } } }).settings.absences;
+    expect(off).not.toHaveProperty("enabled");
+    expect(off.jql).toBe("");
+    expect(core.absencesConfigured(off)).toBe(false);
+    const on = core.mergeDefaults({ version: 8, settings: { absences: { enabled: true, jql } } }).settings.absences;
+    expect(on.jql).toBe(jql);
+    // From version 9 on, an "enabled" left in the file means nothing.
+    expect(core.mergeDefaults({ version: 9, settings: { absences: { enabled: false, jql } } }).settings.absences.jql).toBe(jql);
   });
 
   it("asks for comments by default, switched on once for older settings", () => {
@@ -267,6 +275,15 @@ resolver #1
       { name: "RnD", baseUrl: "https://ows-jira.spb.openwaygroup.com", clientField: "customfield_11000", apiVersion: "2" }
     ]);
     expect(new Set(connections.map((connection) => connection.id)).size).toBe(2);
+    const absences = core.initialData({ companyDomain: true }).settings.absences;
+    expect(absences).toEqual({
+      sourceId: connections[0].id,
+      jql: 'project = calendar AND Employee = currentUser() and type = "Absence Request"',
+      fromField: "customfield_10800",
+      toField: "customfield_10801"
+    });
+    expect(core.mergeDefaults(core.initialData({ companyDomain: true })).settings.absences.sourceId).toBe("jira-delivery");
+    expect(core.initialData().settings.absences.sourceId).toBe("");
     expect(core.mergeDefaults(core.initialData({ companyDomain: true })).settings.jiraConnections).toHaveLength(2);
     expect(core.initialData().settings.jiraConnections).toEqual(core.defaultData().settings.jiraConnections);
   });

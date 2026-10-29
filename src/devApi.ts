@@ -3,6 +3,11 @@ import { DEFAULT_ALLOCATION_RULES } from "./timesheet";
 import type { Absence, AppData, Issue, MonthResult, TimesheetsApi, Worklog } from "./types";
 import { monthDays } from "./time";
 
+/** Same rule as the app: absences are used when the JQL and both date fields are set. */
+function absencesConfigured(absences: { jql: string; fromField: string; toField: string }): boolean {
+  return Boolean(absences.jql.trim() && absences.fromField.trim() && absences.toField.trim());
+}
+
 const ISSUES: Array<[string, string, string]> = [
   ["main", "SUP-1042", "Customer cannot export monthly statement"],
   ["main", "SUP-1077", "Card authorisation timeouts on night batch"],
@@ -150,7 +155,6 @@ export function createDevApi(
       showTypeIcons: true,
       allocationRules: DEFAULT_ALLOCATION_RULES.map((rule) => ({ ...rule })),
       absences: {
-        enabled: true,
         sourceId: "",
         jql: 'project = calendar AND Employee = currentUser() and type = "Absence Request"',
         fromField: "customfield_10800",
@@ -219,7 +223,7 @@ export function createDevApi(
         sources,
         errors: [],
         configured: sources.length,
-        absences: data.settings.absences.enabled ? demoAbsences(month) : [],
+        absences: absencesConfigured(data.settings.absences) ? demoAbsences(month) : [],
         absenceErrors: []
       };
     },

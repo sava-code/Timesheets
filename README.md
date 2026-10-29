@@ -14,7 +14,7 @@ Timesheets selects jira issues from several Jira endpoints by the following JQL 
 (worklogAuthor = currentuser() AND worklogDate >= startOfMonth({{selected month}}) AND worklogDate <= endOfMonth({{selected month}}))
 ```
 
-Additionally, it collects data on your registered absenses (e.g. vacations) from Jira, and updates the planned worklog indicators accordingly. See Settings -> Absenses
+Additionally, it collects data on your registered absences (e.g. vacations) from Jira, and updates the planned worklog indicators accordingly. See Settings -> Absences: they are used whenever the JQL and both date fields are filled in (preset to the Delivery Jira on company computers); clear the JQL to turn them off.
 
 Now you can add new worklog or update an existing one by just a double-click in a table cell. The application automatically registers/updates a worklog once the new value has been set.
 

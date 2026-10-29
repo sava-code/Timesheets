@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("node:path");
 const { dataFilePath, normalizeIncomingData, readRawData, sanitizeData, writeRawData } = require("./storage.cjs");
 const jira = require("./jira.cjs");
+const storageCore = require("./storage-core.cjs");
 const packageMetadata = require("../package.json");
 const updates = require("./update-core.cjs");
 
@@ -67,7 +68,7 @@ ipcMain.handle("jira:fetchMonth", async (_event, month) => {
   let absences = [];
   const absenceErrors = [];
   const absenceSettings = data.settings.absences;
-  const absenceSource = absenceSettings.enabled
+  const absenceSource = storageCore.absencesConfigured(absenceSettings)
     ? connections.find((item) => item.id === absenceSettings.sourceId) || connections[0]
     : null;
 

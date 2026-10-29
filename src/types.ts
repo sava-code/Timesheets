@@ -155,7 +155,7 @@ export interface Absence {
 }
 
 export interface AbsenceSettings {
-  enabled: boolean;
+  /** Absences are used when jql, fromField and toField are all set. */
   /** Jira source holding the absences; "" = the first enabled one. */
   sourceId: string;
   jql: string;

@@ -2,7 +2,7 @@
 
 const { DEFAULT_BASE_JQL } = require("./jira-core.cjs");
 
-const DATA_VERSION = 8;
+const DATA_VERSION = 9;
 
 // Worklogs allocation chart: categories checked in order, the first match wins, the rest is "Other".
 // A category matches an issue by type, by project (name or key) or by text in the summary.
@@ -23,8 +23,8 @@ const DEFAULT_ALLOCATION_RULES = [
 ];
 
 // Absences (vacation, sick leave...) registered as Jira issues; their days are left out of the norm.
+// They are used whenever the JQL and both date fields are filled in.
 const DEFAULT_ABSENCES = {
-  enabled: true,
   sourceId: "", // "" = the first enabled Jira source
   jql: 'project = calendar AND Employee = currentUser() and type = "Absence Request"',
   fromField: "customfield_10800", // "Leave from date"
@@ -118,6 +118,8 @@ function initialData({ companyDomain = false } = {}) {
   const data = defaultData();
   if (companyDomain) {
     data.settings.jiraConnections = COMPANY_CONNECTIONS.map((preset) => ({ ...defaultConnection(0), ...preset }));
+    // Absence requests live in the Delivery Jira.
+    data.settings.absences.sourceId = COMPANY_CONNECTIONS[0].id;
   }
   return data;
 }
@@ -176,13 +178,22 @@ function normalizeFilter(filter) {
   };
 }
 
+/** Absences are fetched when the JQL and both date fields are set. */
+function absencesConfigured(absences) {
+  return Boolean(absences && absences.jql && absences.fromField && absences.toField);
+}
+
 function normalizeAbsences(value) {
   const merged = { ...DEFAULT_ABSENCES, ...(value || {}) };
-  const field = (id, fallback) => (/^(customfield_\d+|[a-z][a-zA-Z0-9]*)$/.test(String(id || "").trim()) ? String(id).trim() : fallback);
+  // Empty means "not set"; anything that isn't a field id falls back to the default.
+  const field = (id, fallback) => {
+    const text = String(id ?? "").trim();
+    if (!text) return "";
+    return /^(customfield_\d+|[a-z][a-zA-Z0-9]*)$/.test(text) ? text : fallback;
+  };
   return {
-    enabled: merged.enabled !== false,
     sourceId: String(merged.sourceId || ""),
-    jql: String(merged.jql || "").trim() || DEFAULT_ABSENCES.jql,
+    jql: String(merged.jql ?? "").trim(),
     fromField: field(merged.fromField, DEFAULT_ABSENCES.fromField),
     toField: field(merged.toField, DEFAULT_ABSENCES.toField)
   };
@@ -262,6 +273,10 @@ function mergeDefaults(data) {
   if (data && version < 8 && settings.tableFont === "segoe") settings.tableFont = "system";
   // Up to version 4 the default white was stored as a custom colour, which also forced it on the dark theme.
   if (data && version < 5 && String(settings.backgroundColor).toLowerCase() === "#ffffff") settings.backgroundColor = "";
+  // Version 9: the "Use absences" switch is gone; absences switched off keep being off via an empty JQL.
+  if (data && version < 9 && settings.absences && settings.absences.enabled === false) {
+    settings.absences = { ...settings.absences, jql: "" };
+  }
   const norm = Number(settings.dailyNormHours);
   return {
     version: DATA_VERSION,
@@ -351,6 +366,7 @@ function normalizeIncomingData(incoming, existing, safeStorage) {
 }
 
 module.exports = {
+  absencesConfigured,
   defaultClientField,
   decryptToken,
   defaultConnection,
