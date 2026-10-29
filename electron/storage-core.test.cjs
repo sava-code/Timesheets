@@ -43,7 +43,7 @@ describe("storage-core", () => {
     for (const version of [1, 2]) {
       const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, backgroundColor: "" } });
       expect(old.settings).toMatchObject(DEFAULT_LOOK);
-      expect(old.version).toBe(10);
+      expect(old.version).toBe(11);
     }
     // From version 3 on, the user's choice is kept.
     const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" } });
@@ -160,8 +160,8 @@ describe("storage-core", () => {
   it("shows issue type icons unless switched off", () => {
     // Off by default; a saved choice is kept.
     expect(core.defaultData().settings.showTypeIcons).toBe(false);
-    expect(core.mergeDefaults({ version: 10, settings: {} }).settings.showTypeIcons).toBe(false);
-    expect(core.mergeDefaults({ version: 10, settings: { showTypeIcons: true } }).settings.showTypeIcons).toBe(true);
+    expect(core.mergeDefaults({ version: 11, settings: {} }).settings.showTypeIcons).toBe(false);
+    expect(core.mergeDefaults({ version: 11, settings: { showTypeIcons: true } }).settings.showTypeIcons).toBe(true);
     // Settings from before version 10 get them switched off once.
     expect(core.mergeDefaults({ version: 9, settings: { showTypeIcons: true } }).settings.showTypeIcons).toBe(false);
   });
@@ -177,13 +177,56 @@ describe("storage-core", () => {
   it("has the default allocation categories and cleans edited ones", () => {
     const rules = core.defaultData().settings.allocationRules;
     expect(rules.map((rule) => rule.name)).toEqual(["Support", "Implementation", "SME", "Academy", "Apollo"]);
-    expect(rules[0]).toEqual({ id: "support", name: "Support", types: "Support Request", projects: "Support Infrastructure, Customer Upgrade", summary: "" });
+    expect(rules[0]).toEqual({
+      id: "support",
+      name: "Support",
+      sourceId: "",
+      jql: 'issuetype in ("Support Request") OR project in ("Support Infrastructure", "Customer Upgrade")'
+    });
     const edited = core.mergeDefaults({
-      version: 7,
-      settings: { allocationRules: [{ id: "x", name: " Ops ", projects: "OPS", extra: 1 }, { id: "y", name: "", projects: "Z" }, "junk"] }
+      version: 11,
+      settings: { allocationRules: [{ id: "x", name: " Ops ", jql: " project = OPS ", sourceId: "b", extra: 1 }, { id: "y", name: "", jql: "x" }, "junk"] }
     }).settings.allocationRules;
-    expect(edited).toEqual([{ id: "x", name: "Ops", types: "", projects: "OPS", summary: "" }]);
+    expect(edited).toEqual([{ id: "x", name: "Ops", sourceId: "b", jql: "project = OPS" }]);
     expect(core.mergeDefaults({ version: 7, settings: { allocationRules: [] } }).settings.allocationRules).toEqual([]);
+  });
+
+  it("turns categories from before version 11 (types, projects, summary) into JQL once", () => {
+    const old = core.mergeDefaults({
+      version: 10,
+      settings: {
+        allocationRules: [
+          { id: "s", name: "Support", types: "Support Request", projects: "Support Infrastructure, Customer Upgrade", summary: "" },
+          { id: "m", name: "SME", types: "", projects: "Business Analysis", summary: "SME, say \"hi\"" },
+          { id: "e", name: "Empty", types: "", projects: "", summary: "" }
+        ]
+      }
+    }).settings.allocationRules;
+    expect(old).toEqual([
+      { id: "s", name: "Support", sourceId: "", jql: 'issuetype in ("Support Request") OR project in ("Support Infrastructure", "Customer Upgrade")' },
+      { id: "m", name: "SME", sourceId: "", jql: 'project in ("Business Analysis") OR summary ~ "SME" OR summary ~ "say \\"hi\\""' },
+      { id: "e", name: "Empty", sourceId: "", jql: "" }
+    ]);
+    // The converted defaults are exactly the new defaults.
+    const defaults = core.mergeDefaults({
+      version: 10,
+      settings: {
+        allocationRules: [
+          { id: "support", name: "Support", types: "Support Request", projects: "Support Infrastructure, Customer Upgrade", summary: "" },
+          {
+            id: "implementation",
+            name: "Implementation",
+            types: "",
+            projects: "Project Handover, BKNN, Custom Development, Customer Projects, MRJ, Nativa Core Team, RPC Core Team, NETS Core Team, Sberbank",
+            summary: ""
+          },
+          { id: "sme", name: "SME", types: "", projects: "Business Analysis, Worklogs from OWS JIRA, OpenWay Vendor Support", summary: "SME" },
+          { id: "academy", name: "Academy", types: "", projects: "OW ACADEMY", summary: "" },
+          { id: "apollo", name: "Apollo", types: "", projects: "Apollo", summary: "" }
+        ]
+      }
+    }).settings.allocationRules;
+    expect(defaults).toEqual(core.defaultData().settings.allocationRules);
   });
 
   it("defaults the base JQL and falls back to it when cleared", () => {

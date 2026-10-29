@@ -60,6 +60,14 @@ function restrictJqlToKeys(jql, keys) {
   return `(${base}) AND key in (${list})`;
 }
 
+/** A category JQL limited to the month's base list: (base) AND (category). */
+function allocationJql(month, baseJql, categoryJql) {
+  const base = stripOrderBy(monthWorklogJql(month, baseJql));
+  const category = stripOrderBy(categoryJql);
+  if (!category) throw new Error("Category JQL is empty.");
+  return `(${base}) AND (${category})`;
+}
+
 function chunk(items, size) {
   const result = [];
   for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
@@ -257,6 +265,7 @@ function issueFields(connection) {
 
 module.exports = {
   DEFAULT_BASE_JQL,
+  allocationJql,
   adfComment,
   newWorklogBody,
   apiVersion,

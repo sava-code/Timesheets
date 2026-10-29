@@ -275,6 +275,25 @@ async function matchFilter(connection, jql, keys) {
   return matched;
 }
 
+/**
+ * Worklogs allocation: for each category checked on this source, the keys of the month's issues
+ * (base JQL) that its JQL matches. Runs alongside the month load; a failing category is reported
+ * and simply matches nothing.
+ */
+async function fetchAllocation(connection, month, baseJql, rules) {
+  const matches = {};
+  const errors = [];
+  await core.mapLimit(rules, 4, async (rule) => {
+    try {
+      const issues = await searchAllIssues(connection, core.allocationJql(month, baseJql, rule.jql), ["summary"]);
+      matches[rule.id] = issues.map((issue) => issue.key);
+    } catch (error) {
+      errors.push({ ruleId: rule.id, message: error.message });
+    }
+  });
+  return { matches, errors };
+}
+
 async function testConnection(connection) {
   const myself = await getMyself(connection);
   return {
@@ -289,6 +308,7 @@ module.exports = {
   deleteWorklog,
   fetchSourceMonth,
   fetchAbsences,
+  fetchAllocation,
   matchFilter,
   searchIssues,
   testConnection,

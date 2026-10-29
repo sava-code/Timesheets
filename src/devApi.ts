@@ -1,6 +1,6 @@
 import { DEFAULT_ALLOCATION_RULES } from "./timesheet";
 // In-browser stand-in for the Electron bridge, used by `npm run dev:web` and tests.
-import type { Absence, AppData, Issue, MonthResult, TimesheetsApi, Worklog } from "./types";
+import type { Absence, AppData, Issue, MonthResult, SourceError, TimesheetsApi, Worklog } from "./types";
 import { monthDays } from "./time";
 
 /** Same rule as the app: absences are used when the JQL and both date fields are set. */
@@ -226,6 +226,43 @@ export function createDevApi(
         absences: absencesConfigured(data.settings.absences) ? demoAbsences(month) : [],
         absenceErrors: []
       };
+    },
+    // Demo only: a category matches by project key or name and issue type (quoted or bare words in its
+    // JQL) or by summary ~ "text"; "!!" is a JQL error.
+    fetchAllocation: async (month) => {
+      await delay(700);
+      const bySource = store(month);
+      const matches: Record<string, Record<string, string[]>> = {};
+      const errors: SourceError[] = [];
+      for (const rule of data.settings.allocationRules) {
+        matches[rule.id] = {};
+        if (!rule.jql.trim()) continue;
+        const summaryTerms = [...rule.jql.matchAll(/summary\s*~\s*"([^"]*)"/gi)].map((match) => match[1].toLowerCase());
+        const rest = rule.jql.replace(/summary\s*~\s*"[^"]*"/gi, " ");
+        const values = new Set(
+          [...[...rest.matchAll(/"([^"]*)"/g)].map((match) => match[1]), ...(rest.replace(/"[^"]*"/g, " ").match(/[A-Za-z][\w-]*/g) || [])].map((value) =>
+            value.toLowerCase()
+          )
+        );
+        for (const connection of data.settings.jiraConnections.filter((item) => item.enabled)) {
+          if (rule.sourceId && rule.sourceId !== connection.id) continue;
+          if (/!!/.test(rule.jql)) {
+            errors.push({ sourceId: connection.id, sourceName: connection.name, message: `${rule.name}: Error in the JQL Query` });
+            continue;
+          }
+          const keys = [...new Set((bySource.get(connection.id) || []).map((item) => item.issueKey))];
+          matches[rule.id][connection.id] = keys.filter((key) => {
+            const known = ISSUES.find(([, issueKey]) => issueKey === key);
+            const item = issue(connection.id, key, known?.[2] || `Issue ${key}`);
+            const summary = item.summary.toLowerCase();
+            return (
+              [item.projectKey, item.projectName || "", item.issueType || ""].some((value) => value && values.has(value.toLowerCase())) ||
+              summaryTerms.some((term) => term && summary.includes(term))
+            );
+          });
+        }
+      }
+      return { month, matches, errors };
     },
     // Demo only: explicit keys (SUP-1, IMPL-2) or project names in the JQL; "!!" is a JQL error.
     searchIssues: async (jql, onlySource) => {

@@ -1,4 +1,4 @@
-import type { Absence, AllocationRule, Issue, MonthResult, SearchResult, Worklog } from "./types";
+import type { Absence, AllocationResult, AllocationRule, Issue, MonthResult, SearchResult, Worklog } from "./types";
 import { monthDays, type MonthDay } from "./time";
 
 export interface Row {
@@ -311,18 +311,21 @@ export function updateSourceWorklogs(
 
 /** Same as DEFAULT_ALLOCATION_RULES in electron/storage-core.cjs. */
 export const DEFAULT_ALLOCATION_RULES: AllocationRule[] = [
-  { id: "support", name: "Support", types: "Support Request", projects: "Support Infrastructure, Customer Upgrade", summary: "" },
+  { id: "support", name: "Support", sourceId: "", jql: 'issuetype in ("Support Request") OR project in ("Support Infrastructure", "Customer Upgrade")' },
   {
     id: "implementation",
     name: "Implementation",
-    types: "",
-    projects:
-      "Project Handover, BKNN, Custom Development, Customer Projects, MRJ, Nativa Core Team, RPC Core Team, NETS Core Team, Sberbank",
-    summary: ""
+    sourceId: "",
+    jql: 'project in ("Project Handover", "BKNN", "Custom Development", "Customer Projects", "MRJ", "Nativa Core Team", "RPC Core Team", "NETS Core Team", "Sberbank")'
   },
-  { id: "sme", name: "SME", types: "", projects: "Business Analysis, Worklogs from OWS JIRA, OpenWay Vendor Support", summary: "SME" },
-  { id: "academy", name: "Academy", types: "", projects: "OW ACADEMY", summary: "" },
-  { id: "apollo", name: "Apollo", types: "", projects: "Apollo", summary: "" }
+  {
+    id: "sme",
+    name: "SME",
+    sourceId: "",
+    jql: 'project in ("Business Analysis", "Worklogs from OWS JIRA", "OpenWay Vendor Support") OR summary ~ "SME"'
+  },
+  { id: "academy", name: "Academy", sourceId: "", jql: 'project in ("OW ACADEMY")' },
+  { id: "apollo", name: "Apollo", sourceId: "", jql: 'project in ("Apollo")' }
 ];
 
 export interface AllocationShare {
@@ -331,34 +334,30 @@ export interface AllocationShare {
   percent: number;
 }
 
-const listOf = (text: string) =>
-  text
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-
-/** The first rule the issue matches (issue type, project name or key, or text in the summary); otherwise "Other". */
-export function allocationCategory(issue: Issue | undefined, rules: AllocationRule[]): string {
-  if (!issue) return "Other";
-  const type = (issue.issueType || "").toLowerCase();
-  const projects = [issue.projectName || "", issue.projectKey || ""].map((value) => value.toLowerCase());
-  const summary = (issue.summary || "").toLowerCase();
+/** The first category (Settings order) whose JQL matched the issue on its source; otherwise "Other". */
+export function allocationCategory(
+  sourceId: string,
+  issueKey: string,
+  rules: AllocationRule[],
+  matches: AllocationResult["matches"]
+): string {
   for (const rule of rules) {
-    if (listOf(rule.types).includes(type) && type) return rule.name;
-    if (listOf(rule.projects).some((project) => projects.includes(project))) return rule.name;
-    if (listOf(rule.summary).some((text) => summary.includes(text))) return rule.name;
+    if (matches[rule.id]?.[sourceId]?.includes(issueKey)) return rule.name;
   }
   return "Other";
 }
 
 /** Shares of all your worklogs of the month by category, largest first. */
-export function worklogAllocation(result: MonthResult | null, rules: AllocationRule[]): AllocationShare[] {
-  if (!result) return [];
+export function worklogAllocation(
+  result: MonthResult | null,
+  rules: AllocationRule[],
+  matches: AllocationResult["matches"] | null
+): AllocationShare[] {
+  if (!result || !matches) return [];
   const totals = new Map<string, number>();
   for (const source of result.sources) {
-    const issues = new Map(source.issues.map((issue) => [issue.key, issue]));
     for (const worklog of source.worklogs) {
-      const name = allocationCategory(issues.get(worklog.issueKey), rules);
+      const name = allocationCategory(source.sourceId, worklog.issueKey, rules, matches);
       totals.set(name, (totals.get(name) || 0) + worklog.seconds);
     }
   }

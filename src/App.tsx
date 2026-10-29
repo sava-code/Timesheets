@@ -27,6 +27,11 @@ export default function App() {
         if (!loaded.settings.jiraConnections.some((item) => item.baseUrl)) setView("settings");
       })
       .catch((reason) => setError(errorText(reason)));
+    // Remote desktop: no animations or transitions, as every repainted frame crosses the network.
+    void api()
+      .getAppInfo()
+      .then((info) => document.documentElement.classList.toggle("remoteSession", Boolean(info.remoteSession)))
+      .catch(() => undefined);
   }, []);
 
   return (

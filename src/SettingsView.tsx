@@ -587,9 +587,10 @@ export function SettingsView({ data, onSaved }: Props) {
                   <div>
                     <h3>Worklogs allocation</h3>
                     <p>
-                      Categories for the allocation line under the timesheet. Each worklog of the month goes to the first category its
-                      issue matches: by issue type, by project (name or key) or by text in the summary. Lists are
-                      comma-separated and not case-sensitive. Everything else is <strong>Other</strong>.
+                      Categories for the allocation line under the timesheet, each defined by a JQL such as{" "}
+                      <code>project in ("Custom Development", MRJ) OR summary ~ "SME"</code>. Each worklog of the month goes to
+                      the first category whose JQL matches its issue; everything else is <strong>Other</strong>. A category can run on
+                      one Jira source only.
                     </p>
                   </div>
                   <div className="panelActions">
@@ -607,7 +608,7 @@ export function SettingsView({ data, onSaved }: Props) {
                           ...current,
                           allocationRules: [
                             ...current.allocationRules,
-                            { id: newId("category"), name: "", types: "", projects: "", summary: "" }
+                            { id: newId("category"), name: "", sourceId: "", jql: "" }
                           ]
                         }))
                       }
@@ -618,9 +619,8 @@ export function SettingsView({ data, onSaved }: Props) {
                 </div>
                 <div className="ruleRow ruleHead" aria-hidden="true">
                   <span>Category</span>
-                  <span>Issue types</span>
-                  <span>Projects</span>
-                  <span>Summary contains</span>
+                  <span>Jira source</span>
+                  <span>JQL</span>
                   <span />
                 </div>
                 {draft.allocationRules.map((rule, index) => (
@@ -631,23 +631,25 @@ export function SettingsView({ data, onSaved }: Props) {
                       aria-label={`Category name ${index + 1}`}
                       onChange={(event) => patchRule(rule.id, { name: event.target.value })}
                     />
+                    <select
+                      aria-label={`Jira source for ${rule.name || "category"}`}
+                      title="The Jira this category's JQL runs on"
+                      value={draft.jiraConnections.some((item) => item.id === rule.sourceId) ? rule.sourceId : ""}
+                      onChange={(event) => patchRule(rule.id, { sourceId: event.target.value })}
+                    >
+                      <option value="">All</option>
+                      {draft.jiraConnections.map((connection) => (
+                        <option key={connection.id} value={connection.id}>
+                          {connection.name}
+                        </option>
+                      ))}
+                    </select>
                     <input
-                      value={rule.types}
-                      placeholder="e.g. Support Request"
-                      aria-label={`Issue types for ${rule.name || "category"}`}
-                      onChange={(event) => patchRule(rule.id, { types: event.target.value })}
-                    />
-                    <input
-                      value={rule.projects}
-                      placeholder="e.g. Apollo, SUP"
-                      aria-label={`Projects for ${rule.name || "category"}`}
-                      onChange={(event) => patchRule(rule.id, { projects: event.target.value })}
-                    />
-                    <input
-                      value={rule.summary}
-                      placeholder="e.g. SME"
-                      aria-label={`Summary text for ${rule.name || "category"}`}
-                      onChange={(event) => patchRule(rule.id, { summary: event.target.value })}
+                      value={rule.jql}
+                      placeholder='e.g. project in ("Custom Development", MRJ)'
+                      spellCheck={false}
+                      aria-label={`JQL for ${rule.name || "category"}`}
+                      onChange={(event) => patchRule(rule.id, { jql: event.target.value })}
                     />
                     <span className="ruleButtons">
                       <button className="icon" title="Move up" aria-label={`Move ${rule.name || "category"} up`} disabled={index === 0} onClick={() => moveRule(index, -1)}>
