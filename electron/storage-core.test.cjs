@@ -186,6 +186,32 @@ describe("storage-core", () => {
     expect(core.mergeDefaults({ version: 7, settings: { allocationRules: [] } }).settings.allocationRules).toEqual([]);
   });
 
+  it("reads back the JQL categories saved by version 1.2.14", () => {
+    const saved = core.mergeDefaults({
+      version: 11,
+      settings: {
+        allocationRules: [
+          { id: "support", name: "Support", sourceId: "", jql: 'issuetype in ("Support Request") OR project in ("Support Infrastructure", "Customer Upgrade")' },
+          {
+            id: "implementation",
+            name: "Implementation",
+            sourceId: "",
+            jql: 'project in ("Project Handover", "BKNN", "Custom Development", "Customer Projects", "MRJ", "Nativa Core Team", "RPC Core Team", "NETS Core Team", "Sberbank")'
+          },
+          { id: "sme", name: "SME", sourceId: "", jql: 'project in ("Business Analysis", "Worklogs from OWS JIRA", "OpenWay Vendor Support") OR summary ~ "SME"' },
+          { id: "academy", name: "Academy", sourceId: "", jql: 'project in ("OW ACADEMY")' },
+          { id: "apollo", name: "Apollo", sourceId: "", jql: 'project in ("Apollo")' },
+          { id: "q", name: "Quoted", sourceId: "", jql: 'summary ~ "say \\"hi\\"" OR summary ~ "demo"' },
+          { id: "c", name: "Custom", sourceId: "b", jql: "labels = ops" }
+        ]
+      }
+    }).settings.allocationRules;
+    expect(saved.slice(0, 5)).toEqual(core.defaultData().settings.allocationRules);
+    expect(saved[5]).toEqual({ id: "q", name: "Quoted", types: "", projects: "", summary: 'say "hi", demo' });
+    // A JQL that isn't one of the lists can't be turned back; the category stays, empty.
+    expect(saved[6]).toEqual({ id: "c", name: "Custom", types: "", projects: "", summary: "" });
+  });
+
   it("defaults the base JQL and falls back to it when cleared", () => {
     const base = 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"';
     expect(core.defaultData().settings.baseJql).toBe(base);

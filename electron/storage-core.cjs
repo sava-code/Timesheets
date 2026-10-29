@@ -202,6 +202,21 @@ function normalizeAbsences(value) {
   };
 }
 
+/**
+ * Version 1.2.14 stored categories as one JQL ({ jql, sourceId }) built from the lists:
+ * issuetype in ("A", "B") OR project in ("X", "Y") OR summary ~ "text". Reads them back into the lists.
+ */
+function ruleListsFromJql(jql) {
+  const text = String(jql || "");
+  const quoted = (value) => [...String(value).matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((match) => match[1].replace(/\\(.)/g, "$1"));
+  const inList = (field) => {
+    const match = new RegExp(`\\b${field}\\s+in\\s*\\(([^)]*)\\)`, "i").exec(text);
+    return match ? quoted(match[1]) : [];
+  };
+  const summary = [...text.matchAll(/\bsummary\s*~\s*("(?:[^"\\]|\\.)*")/gi)].flatMap((match) => quoted(match[1]));
+  return { types: inList("issuetype").join(", "), projects: inList("project").join(", "), summary: summary.join(", ") };
+}
+
 function normalizeAllocationRules(rules) {
   if (!Array.isArray(rules)) return DEFAULT_ALLOCATION_RULES.map((rule) => ({ ...rule }));
   const list = (value) =>
@@ -213,13 +228,18 @@ function normalizeAllocationRules(rules) {
   // Categories without a name are dropped.
   return rules
     .filter((rule) => rule && typeof rule === "object" && String(rule.name || "").trim())
-    .map((rule) => ({
-      id: String(rule.id || makeId("category")),
-      name: String(rule.name).trim(),
-      types: list(rule.types),
-      projects: list(rule.projects),
-      summary: list(rule.summary)
-    }));
+    .map((rule) => {
+      const lists = typeof rule.jql === "string" && rule.types === undefined && rule.projects === undefined && rule.summary === undefined
+        ? ruleListsFromJql(rule.jql)
+        : rule;
+      return {
+        id: String(rule.id || makeId("category")),
+        name: String(rule.name).trim(),
+        types: list(lists.types),
+        projects: list(lists.projects),
+        summary: list(lists.summary)
+      };
+    });
 }
 
 function normalizeAllFilter(filter) {
