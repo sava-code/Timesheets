@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -12,8 +13,8 @@ import { ChevronLeft, ChevronRight, Code2, LoaderCircle, Paperclip, RefreshCw, S
 import { api, errorText } from "./api";
 import { tableFontStack } from "./fonts";
 import { AllocationChart } from "./AllocationChart";
-import type { AppData, Issue, MonthResult, SearchResult, Worklog } from "./types";
-import { currentMonth, formatDuration, monthDays, monthLabel, parseDuration, shiftMonth, todayKey } from "./time";
+import type { AppData, DisplayFormat, Issue, MonthResult, SearchResult, Worklog } from "./types";
+import { currentMonth, formatDuration, monthDays, monthLabel, parseDuration, shiftMonth, todayKey, type MonthDay } from "./time";
 import {
   absenceDays,
   baseSources,
@@ -33,6 +34,7 @@ import {
   planCellEdit,
   updateSourceWorklogs,
   visibleDays,
+  type Row,
   type SourceRows
 } from "./timesheet";
 
@@ -590,6 +592,44 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
     }
   };
 
+  // Rows re-render only when their own content, selection, editor or pending cells change:
+  // the handlers go through a stable ref instead of new functions on every render.
+  const pendingDaysByRow = useMemo(() => {
+    const byRow = new Map<string, string>();
+    for (const id of pending) {
+      const [row, day] = id.split("|");
+      byRow.set(row, `${byRow.get(row) || ""}${day} `);
+    }
+    return byRow;
+  }, [pending]);
+  const rowActionsRef = useRef<RowActions | null>(null);
+  rowActionsRef.current = {
+    select: (cell) => {
+      setSelected(cell);
+      focusGrid();
+    },
+    startEdit: (cell) => startEdit(cell),
+    setEditingValue: (value) => {
+      const current = editingRef.current;
+      if (!current) return;
+      const next = { ...current, value };
+      editingRef.current = next;
+      setEditing(next);
+    },
+    onEditorKeyDown: (event) => onEditorKeyDown(event),
+    finishEdit: () => finishEdit(true)
+  };
+  const rowActions = useMemo<RowActions>(
+    () => ({
+      select: (cell) => rowActionsRef.current?.select(cell),
+      startEdit: (cell) => rowActionsRef.current?.startEdit(cell),
+      setEditingValue: (value) => rowActionsRef.current?.setEditingValue(value),
+      onEditorKeyDown: (event) => rowActionsRef.current?.onEditorKeyDown(event),
+      finishEdit: () => rowActionsRef.current?.finishEdit()
+    }),
+    []
+  );
+
   const totalClass = (dayKey: string, isWeekend: boolean, seconds: number) => {
     if (absent.has(dayKey)) return "absent";
     // The norm applies to the whole day, so colour only when the table shows all of your time.
@@ -785,101 +825,25 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td className="linkCol">
-                  <a
-                    className="issueLink"
-                    href={row.issue.url}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      void api().openExternal(row.issue.url);
-                    }}
-                    aria-label={`Open ${row.issue.key} in ${row.issue.sourceName}`}
-                    data-tip={`Open ${row.issue.key} in ${row.issue.sourceName}`}
-                  >
-                    <Paperclip size={14} />
-                  </a>
-                </td>
-                <td
-                  className="summaryCol"
-                  data-tip={[row.issue.key, row.issue.issueType, row.issue.summary].filter(Boolean).join(" · ")}
-                >
-                  <span className="summaryInner">
-                    {settings.showTypeIcons &&
-                      (row.issue.typeIcon ? (
-                        <img className="typeIcon" src={row.issue.typeIcon} alt={row.issue.issueType || ""} />
-                      ) : (
-                        <span className="typeIcon placeholder" />
-                      ))}
-                    <span className="summaryText">{row.issue.summary}</span>
-                  </span>
-                </td>
-                <td className="totalCol">{formatDuration(row.total, format)}</td>
-                {days.map((day) => {
-                  const cell = { row: row.id, day: day.key };
-                  const id = cellId(cell);
-                  const worklogs = row.cells[day.key] || [];
-                  const seconds = cellSeconds(worklogs);
-                  const isSelected = selected?.row === row.id && selected.day === day.key;
-                  const isEditing = editing?.row === row.id && editing.day === day.key;
-                  const isPending = pending.has(id);
-                  const tooltip = worklogs.length
-                    ? worklogs
-                        .map((item) => `${formatDuration(item.seconds, "jira")}${item.comment ? ` — ${item.comment}` : ""}`)
-                        .join("\n")
-                    : undefined;
-                  return (
-                    <td
-                      key={day.key}
-                      data-cell={id}
-                      className={[
-                        "dayCol",
-                        "cell",
-                        day.isWeekend ? "weekend" : "",
-                        day.key === today ? "today" : "",
-                        absent.has(day.key) ? "absent" : "",
-                        isSelected ? "selected" : "",
-                        isPending ? "pending" : "",
-                        worklogs.length > 1 ? "multi" : ""
-                      ].join(" ")}
-                      data-tip={tooltip}
-                      onMouseDown={(event) => {
-                        if (isEditing) return;
-                        event.preventDefault();
-                        setSelected(cell);
-                        focusGrid();
-                      }}
-                      onDoubleClick={() => startEdit(cell)}
-                    >
-                      {isEditing ? (
-                        <input
-                          className="editor"
-                          autoFocus
-                          value={editing.value}
-                          onFocus={(event) => {
-                            const input = event.currentTarget;
-                            const end = input.value.length;
-                            input.setSelectionRange(end, end);
-                          }}
-                          onChange={(event) => {
-                            const next = { ...editing, value: event.target.value };
-                            editingRef.current = next;
-                            setEditing(next);
-                          }}
-                          onKeyDown={onEditorKeyDown}
-                          onBlur={() => finishEdit(true)}
-                        />
-                      ) : isPending ? (
-                        <LoaderCircle size={14} className="spin" />
-                      ) : (
-                        formatDuration(seconds, format)
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const editingHere = editing && editing.row === row.id ? editing : null;
+              return (
+                <GridRow
+                  key={row.id}
+                  row={row}
+                  days={days}
+                  today={today}
+                  absent={absent}
+                  format={format}
+                  showTypeIcons={settings.showTypeIcons}
+                  selectedDay={selected?.row === row.id ? selected.day : null}
+                  editingDay={editingHere?.day ?? null}
+                  editingValue={editingHere?.value ?? ""}
+                  pendingDays={pendingDaysByRow.get(row.id) ?? ""}
+                  actions={rowActions}
+                />
+              );
+            })}
             {!rows.length && !loading && !freeLoading && !narrowLoading && (
               <tr>
                 <td className="emptyRow" colSpan={days.length + 3}>
@@ -960,6 +924,130 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
 }
 
 /** Asks for a comment for a new worklog. Ctrl/Cmd+Enter saves, Esc cancels. */
+interface RowActions {
+  select: (cell: Cell) => void;
+  startEdit: (cell: Cell) => void;
+  setEditingValue: (value: string) => void;
+  onEditorKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  finishEdit: () => void;
+}
+
+interface GridRowProps {
+  row: Row;
+  days: MonthDay[];
+  today: string;
+  absent: Map<string, unknown>;
+  format: DisplayFormat;
+  showTypeIcons: boolean;
+  selectedDay: string | null;
+  editingDay: string | null;
+  editingValue: string;
+  /** Days of this row whose cells are being saved, space-separated */
+  pendingDays: string;
+  actions: RowActions;
+}
+
+/** One issue row of the grid. Memoized: a click or arrow key re-renders only the rows it touches. */
+const GridRow = memo(function GridRow({
+  row,
+  days,
+  today,
+  absent,
+  format,
+  showTypeIcons,
+  selectedDay,
+  editingDay,
+  editingValue,
+  pendingDays,
+  actions
+}: GridRowProps) {
+  return (
+    <tr>
+      <td className="linkCol">
+        <a
+          className="issueLink"
+          href={row.issue.url}
+          onClick={(event) => {
+            event.preventDefault();
+            void api().openExternal(row.issue.url);
+          }}
+          aria-label={`Open ${row.issue.key} in ${row.issue.sourceName}`}
+          data-tip={`Open ${row.issue.key} in ${row.issue.sourceName}`}
+        >
+          <Paperclip size={14} />
+        </a>
+      </td>
+      <td className="summaryCol" data-tip={[row.issue.key, row.issue.issueType, row.issue.summary].filter(Boolean).join(" · ")}>
+        <span className="summaryInner">
+          {showTypeIcons &&
+            (row.issue.typeIcon ? (
+              <img className="typeIcon" src={row.issue.typeIcon} alt={row.issue.issueType || ""} />
+            ) : (
+              <span className="typeIcon placeholder" />
+            ))}
+          <span className="summaryText">{row.issue.summary}</span>
+        </span>
+      </td>
+      <td className="totalCol">{formatDuration(row.total, format)}</td>
+      {days.map((day) => {
+        const cell = { row: row.id, day: day.key };
+        const id = cellId(cell);
+        const worklogs = row.cells[day.key] || [];
+        const seconds = cellSeconds(worklogs);
+        const isSelected = selectedDay === day.key;
+        const isEditing = editingDay === day.key;
+        const isPending = pendingDays.includes(`${day.key} `);
+        const tooltip = worklogs.length
+          ? worklogs.map((item) => `${formatDuration(item.seconds, "jira")}${item.comment ? ` — ${item.comment}` : ""}`).join("\n")
+          : undefined;
+        return (
+          <td
+            key={day.key}
+            data-cell={id}
+            className={[
+              "dayCol",
+              "cell",
+              day.isWeekend ? "weekend" : "",
+              day.key === today ? "today" : "",
+              absent.has(day.key) ? "absent" : "",
+              isSelected ? "selected" : "",
+              isPending ? "pending" : "",
+              worklogs.length > 1 ? "multi" : ""
+            ].join(" ")}
+            data-tip={tooltip}
+            onMouseDown={(event) => {
+              if (isEditing) return;
+              event.preventDefault();
+              actions.select(cell);
+            }}
+            onDoubleClick={() => actions.startEdit(cell)}
+          >
+            {isEditing ? (
+              <input
+                className="editor"
+                autoFocus
+                value={editingValue}
+                onFocus={(event) => {
+                  const input = event.currentTarget;
+                  const end = input.value.length;
+                  input.setSelectionRange(end, end);
+                }}
+                onChange={(event) => actions.setEditingValue(event.target.value)}
+                onKeyDown={actions.onEditorKeyDown}
+                onBlur={actions.finishEdit}
+              />
+            ) : isPending ? (
+              <LoaderCircle size={14} className="spin" />
+            ) : (
+              formatDuration(seconds, format)
+            )}
+          </td>
+        );
+      })}
+    </tr>
+  );
+});
+
 function CommentDialog({
   title,
   detail,

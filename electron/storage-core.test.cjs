@@ -43,7 +43,7 @@ describe("storage-core", () => {
     for (const version of [1, 2]) {
       const old = core.mergeDefaults({ version, settings: { theme: "dark", tableFont: "segoe", tableFontSize: 14, backgroundColor: "" } });
       expect(old.settings).toMatchObject(DEFAULT_LOOK);
-      expect(old.version).toBe(9);
+      expect(old.version).toBe(10);
     }
     // From version 3 on, the user's choice is kept.
     const chosen = core.mergeDefaults({ version: 3, settings: { theme: "dark", tableFont: "mono", tableFontSize: 16, backgroundColor: "" } });
@@ -158,9 +158,12 @@ describe("storage-core", () => {
   });
 
   it("shows issue type icons unless switched off", () => {
-    expect(core.defaultData().settings.showTypeIcons).toBe(true);
-    expect(core.mergeDefaults({ version: 7, settings: {} }).settings.showTypeIcons).toBe(true);
-    expect(core.mergeDefaults({ version: 7, settings: { showTypeIcons: false } }).settings.showTypeIcons).toBe(false);
+    // Off by default; a saved choice is kept.
+    expect(core.defaultData().settings.showTypeIcons).toBe(false);
+    expect(core.mergeDefaults({ version: 10, settings: {} }).settings.showTypeIcons).toBe(false);
+    expect(core.mergeDefaults({ version: 10, settings: { showTypeIcons: true } }).settings.showTypeIcons).toBe(true);
+    // Settings from before version 10 get them switched off once.
+    expect(core.mergeDefaults({ version: 9, settings: { showTypeIcons: true } }).settings.showTypeIcons).toBe(false);
   });
 
   it("keeps each filter's Jira source, every source by default", () => {

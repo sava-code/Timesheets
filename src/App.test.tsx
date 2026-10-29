@@ -353,7 +353,7 @@ describe("Timesheet grid", () => {
     expect(screen.getByRole("radio", { name: "All" })).not.toHaveClass("active");
   });
 
-  it("shows columns as Link, Summary, Total and the issue type icon before the summary", async () => {
+  it("shows columns as Link, Summary, Total, without issue type icons by default", async () => {
     render(<App />);
     await screen.findByLabelText(issueLink("INT-15"));
     const headings = [...document.querySelectorAll("thead tr.dayRow th")].slice(0, 3);
@@ -363,9 +363,7 @@ describe("Timesheet grid", () => {
     // No Key column: the key is in the link and in the summary hint.
     expect(firstRow.querySelector("td.linkCol a svg")).toBeInTheDocument();
     expect(firstRow.querySelector("td.summaryCol")!.getAttribute("data-tip")).toMatch(/^[A-Z]+-\d+ · /);
-    const icon = firstRow.querySelector<HTMLImageElement>("td.summaryCol img.typeIcon")!;
-    expect(icon.src).toMatch(/^data:image\/svg\+xml/);
-    expect(icon.alt).toMatch(/Task|Bug|Story|Sub-task/);
+    expect(firstRow.querySelector("td.summaryCol .typeIcon")).toBeNull();
   });
 
   it("reorders filters by drag and drop in Settings, with All kept first", async () => {
@@ -560,21 +558,23 @@ describe("Timesheet grid", () => {
     await waitFor(() => expect(screen.getByRole("region", { name: "Worklogs allocation" })).toHaveTextContent("Help desk"));
   });
 
-  it("switches the issue type icons off in Appearance", async () => {
+  it("switches the issue type icons on in Appearance, before the summary", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByLabelText(issueLink("INT-15"));
-    expect(document.querySelectorAll("td.summaryCol .typeIcon").length).toBeGreaterThan(0);
+    expect(document.querySelectorAll("td.summaryCol .typeIcon")).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: /settings/i }));
     await user.click(await screen.findByRole("tab", { name: "Appearance" }));
     const option = screen.getByLabelText("Show issue type icons");
-    expect(option).toBeChecked();
+    expect(option).not.toBeChecked();
     await user.click(option);
     await user.click(screen.getByRole("button", { name: /save settings/i }));
     await screen.findByText("Settings saved.");
     await user.click(screen.getByRole("button", { name: /timesheet/i }));
     await screen.findByLabelText(issueLink("INT-15"));
-    expect(document.querySelectorAll("td.summaryCol .typeIcon")).toHaveLength(0);
+    const icon = document.querySelector<HTMLImageElement>("tbody tr td.summaryCol img.typeIcon")!;
+    expect(icon.src).toMatch(/^data:image\/svg\+xml/);
+    expect(icon.alt).toMatch(/Task|Bug|Story|Sub-task/);
   });
 
   it("has a client field per Jira that follows the URL until changed", async () => {

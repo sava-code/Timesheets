@@ -22,6 +22,8 @@ You can set spent time either in hours in **decimals** (1.5) or in jira-like for
 
 You can optionally set additional filters list (e.g. "Support tickets" / "Development"), see predefined filters for reference.
 
+Issue type icons next to the summaries are off by default; switch them on in Settings -> Appearance.
+
 ## First Run
 
 Builds are not signed with a paid certificate, so expect a warning on first launch:

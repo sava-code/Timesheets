@@ -2,7 +2,7 @@
 
 const { DEFAULT_BASE_JQL } = require("./jira-core.cjs");
 
-const DATA_VERSION = 9;
+const DATA_VERSION = 10;
 
 // Worklogs allocation chart: categories checked in order, the first match wins, the rest is "Other".
 // A category matches an issue by type, by project (name or key) or by text in the summary.
@@ -137,7 +137,7 @@ function defaultData() {
       baseJql: DEFAULT_BASE_JQL,
       allFilter: { jql: "", free: false },
       askComment: true,
-      showTypeIcons: true,
+      showTypeIcons: false,
       allocationRules: DEFAULT_ALLOCATION_RULES.map((rule) => ({ ...rule })),
       absences: { ...DEFAULT_ABSENCES },
       filters: DEFAULT_FILTERS.map((filter) => ({ ...filter })),
@@ -277,6 +277,8 @@ function mergeDefaults(data) {
   if (data && version < 9 && settings.absences && settings.absences.enabled === false) {
     settings.absences = { ...settings.absences, jql: "" };
   }
+  // Version 10: issue type icons are off by default; switched off once for existing settings.
+  if (data && version < 10) settings.showTypeIcons = false;
   const norm = Number(settings.dailyNormHours);
   return {
     version: DATA_VERSION,
@@ -292,7 +294,7 @@ function mergeDefaults(data) {
       baseJql: String(settings.baseJql || "").trim() || DEFAULT_BASE_JQL,
       allFilter: normalizeAllFilter(settings.allFilter),
       askComment: settings.askComment !== false,
-      showTypeIcons: settings.showTypeIcons !== false,
+      showTypeIcons: settings.showTypeIcons === true,
       allocationRules: normalizeAllocationRules(settings.allocationRules),
       absences: normalizeAbsences(
         data && version < 6 && String(settings.absences?.jql || "").trim() === PREVIOUS_ABSENCES_JQL
