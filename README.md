@@ -54,6 +54,7 @@ The app asks for confirmation before deleting more than one worklog, or any work
 ## Setup
 
 1. Open **Settings**. On first launch the app opens there automatically.
+   On a company computer (Windows: logged on to the `openwaygroup.com` domain; macOS: the device name starts with `OW`), the first launch pre-sets two Jira sources: *Delivery* (`https://jira.spb.openwaygroup.com`, client field `customfield_10703`) and *RnD* (`https://ows-jira.spb.openwaygroup.com`, client field `customfield_11000`); only the login and password are left to fill in.
 2. For each Jira, fill in the following:
    - **Base URL**: e.g. `https://jira.company.com` or `https://company.atlassian.net`
    - **Jira type**: Server / Data Center or Cloud
@@ -104,6 +105,7 @@ electron/
   jira.cjs          Jira REST calls (search, worklogs, create/update/delete)
   jira-core.cjs     pure helpers: JQL, auth, mapping (unit-tested)
   storage*.cjs      settings file + encrypted secrets (unit-tested)
+  domain.cjs        Windows domain / Mac name, for first-launch Jira presets
 src/
   TimesheetView.tsx grid, keyboard editing, filters, activity log
   SettingsView.tsx  Jira sources, filters, preferences

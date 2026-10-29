@@ -227,4 +227,27 @@ describe("storage-core", () => {
       core.normalizeIncomingData({ settings: { jiraConnections: [{ id: "a", token: "x" }] } }, core.defaultData(), unavailable)
     ).toThrow(/Encrypted credential storage/);
   });
+
+  it("recognises company computers: openwaygroup.com domain on Windows, OW device name on macOS", () => {
+    expect(core.isCompanyComputer({ platform: "win32", dnsDomain: "OPENWAYGROUP.COM" })).toBe(true);
+    expect(core.isCompanyComputer({ platform: "win32", dnsDomain: "spb.openwaygroup.com" })).toBe(true);
+    expect(core.isCompanyComputer({ platform: "win32", dnsDomain: "notopenwaygroup.com" })).toBe(false);
+    expect(core.isCompanyComputer({ platform: "win32", dnsDomain: "openwaygroup.com.evil.io" })).toBe(false);
+    expect(core.isCompanyComputer({ platform: "win32", dnsDomain: "" })).toBe(false);
+    expect(core.isCompanyComputer({ platform: "darwin", computerNames: ["OW-MAC-0123"] })).toBe(true);
+    expect(core.isCompanyComputer({ platform: "darwin", computerNames: ["Anna's MacBook", "OW1234.local"] })).toBe(true);
+    expect(core.isCompanyComputer({ platform: "darwin", computerNames: ["Owen's MacBook", "MacBook-OW"] })).toBe(false);
+    expect(core.isCompanyComputer({ platform: "linux", dnsDomain: "openwaygroup.com", computerNames: ["OW1"] })).toBe(false);
+  });
+
+  it("pre-sets Delivery and RnD Jira sources on a first launch in the company domain", () => {
+    const connections = core.initialData({ companyDomain: true }).settings.jiraConnections;
+    expect(connections.map(({ name, baseUrl, clientField, apiVersion }) => ({ name, baseUrl, clientField, apiVersion }))).toEqual([
+      { name: "Delivery", baseUrl: "https://jira.spb.openwaygroup.com", clientField: "customfield_10703", apiVersion: "2" },
+      { name: "RnD", baseUrl: "https://ows-jira.spb.openwaygroup.com", clientField: "customfield_11000", apiVersion: "2" }
+    ]);
+    expect(new Set(connections.map((connection) => connection.id)).size).toBe(2);
+    expect(core.mergeDefaults(core.initialData({ companyDomain: true })).settings.jiraConnections).toHaveLength(2);
+    expect(core.initialData().settings.jiraConnections).toEqual(core.defaultData().settings.jiraConnections);
+  });
 });

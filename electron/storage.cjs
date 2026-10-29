@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { app, safeStorage } = require("electron");
 const core = require("./storage-core.cjs");
+const { computerIdentity } = require("./domain.cjs");
 
 const DATA_FILE = "timesheets-data.json";
 // Where versions before the rename to "Timesheets" kept their settings.
@@ -41,10 +42,15 @@ function writeRawData(data) {
   fs.renameSync(tmp, file);
 }
 
+// First launch: company users (openwaygroup.com domain on Windows, "OW…" Mac) start with their Jira sources pre-set.
+function firstLaunchData() {
+  return core.initialData({ companyDomain: core.isCompanyComputer(computerIdentity()) });
+}
+
 function readRawData() {
   const file = dataFilePath();
   if (!fs.existsSync(file)) {
-    const initial = core.defaultData();
+    const initial = firstLaunchData();
     writeRawData(initial);
     return initial;
   }

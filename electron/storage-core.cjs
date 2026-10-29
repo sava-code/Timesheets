@@ -84,6 +84,38 @@ function defaultConnection(index = 0) {
   };
 }
 
+// Jira sources pre-set on first launch for users of the openwaygroup.com domain.
+const COMPANY_DOMAIN = "openwaygroup.com";
+const COMPANY_CONNECTIONS = [
+  { id: "jira-delivery", name: "Delivery", baseUrl: "https://jira.spb.openwaygroup.com", clientField: "customfield_10703" },
+  { id: "jira-rnd", name: "RnD", baseUrl: "https://ows-jira.spb.openwaygroup.com", clientField: "customfield_11000" }
+];
+
+/** True when the domain name is openwaygroup.com or a subdomain of it (case-insensitive). */
+function isCompanyDomain(name) {
+  const domain = String(name || "").trim().toLowerCase().replace(/\.+$/, "");
+  return domain === COMPANY_DOMAIN || domain.endsWith(`.${COMPANY_DOMAIN}`);
+}
+
+/**
+ * A company computer: on Windows the user is logged on to the openwaygroup.com domain,
+ * on macOS the device name starts with "OW".
+ */
+function isCompanyComputer({ platform, dnsDomain = "", computerNames = [] } = {}) {
+  if (platform === "win32") return isCompanyDomain(dnsDomain);
+  if (platform === "darwin") return computerNames.some((name) => String(name || "").trim().startsWith("OW"));
+  return false;
+}
+
+/** Settings for a first launch; company users get the Delivery and RnD Jira sources. */
+function initialData({ companyDomain = false } = {}) {
+  const data = defaultData();
+  if (companyDomain) {
+    data.settings.jiraConnections = COMPANY_CONNECTIONS.map((preset) => ({ ...defaultConnection(0), ...preset }));
+  }
+  return data;
+}
+
 function defaultData() {
   return {
     version: DATA_VERSION,
@@ -318,6 +350,9 @@ module.exports = {
   defaultConnection,
   defaultData,
   encryptToken,
+  initialData,
+  isCompanyComputer,
+  isCompanyDomain,
   mergeDefaults,
   normalizeIncomingData,
   normalizeKeys,
