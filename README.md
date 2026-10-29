@@ -1,31 +1,24 @@
 # Timesheets
 
-A desktop app for managing your Jira worklogs in a monthly, spreadsheet-like grid. It is a rewrite of the Python/Dash [jira-timesheets](https://github.com/sava-code/jira-timesheets) tool.
+A desktop app for managing your Jira worklogs in a monthly, spreadsheet-like grid. The easiest way to manage your daily worklogs.
 
-Jira is the only source of truth. Each cell shows your own logged time on one issue for one day. Changing a cell writes to Jira immediately.
+You can add/modify your worklogs in several jira instances right in the table form - like in Excel
 
 ## Features
 
-- **Month grid.** Rows are issues (a paper clip link that opens the issue in Jira, the issue type icon, summary and month total; the key is in the summary hint), columns are days, with daily totals at the top. Navigate to any month.
-- **Spreadsheet editing.** Click a cell and type, or double-click it. Enter moves down, Tab moves right, arrow keys move, Esc cancels, Delete clears the cell.
-- **Flexible time input.** Accepts `1.5`, `1,5`, `1h 30m`, `90m`, `1.5h` and `1:30`. An empty value or `0` deletes the time.
-- **Several Jira instances in one grid.** Supports Jira Server/Data Center (API v2) and Jira Cloud (API v3), with password/API token or personal access token auth.
-- **Base list.** By default the table shows issues with your worklogs in the month, plus each source's optional *Extra issues JQL* (for example `filter = worklogs`).
-- **Jira JQL search.** The box above the table runs any JQL (Enter or Refresh) and shows exactly the issues it returns, with your logged time for the month. Use it to log time on an issue you haven't logged on yet. Clear it (× or Esc) to go back.
-- **JQL filters.** Quick filter chips, each a label plus a JQL. A normal filter narrows the base list; a *Free* filter shows exactly the issues its JQL returns. The *All* chip can have its own JQL too (narrowing or free). Each filter except *All* and the presets can run on one Jira source only (a dropdown next to its label); *All*, the default, makes it a common filter for every configured Jira. Set them up in *Settings → Filters*, which starts with the *Base JQL* (the base list behind *All*) followed by the *Quick filters*. There is also a text search. Two free filters come preset: *Viewed recently* (`issuekey in issueHistory() order by lastViewed DESC`) and *My open tickets* (`assignee = currentUser() AND resolution = Unresolved order by updated DESC`).
-- **Daily norm.** The daily totals row is green when a past working day reaches the norm, amber when it is short and red when it is empty. The header shows Due (the norm up to today) and Month (norms without absence days), Left to post and Timeliness.
-- **Timeliness.** A percentage next to Refresh (how soon worklogs are posted) from the time-weighted average number of working days (weekends skipped) between a worklog's date and the day it was entered in Jira: up to 3 days 100%, 3–5 days 90%, 5–10 days 70%, 10–15 days 50%, 15–20 days 30%, over 20 days 10%. The scale is in the indicator's hint; a short line underneath says how you're doing ("You are the best!" at 100%).
-- **Left to post.** Due (without absence days) minus the time logged up to today; shows "All logged" or the extra time when nothing is missing.
-- **Comments on new worklogs.** With *Settings → Timesheet → Ask for a comment on new worklogs* (on by default), entering time in an empty cell opens a window for the worklog comment, with your most used comments as quick picks. Save, skip the comment, or cancel to create nothing. Changing existing worklogs never asks.
-- **Absences.** Days off registered in Jira (by default `project = calendar AND Employee = currentUser() and type = "Absence Request"`, dates from "Leave from date" `customfield_10800` and "Leave to date" `customfield_10801`) are left out of the norm and shown in light grey, with the absence in a tooltip. Configurable or switchable off in Settings → Absences.
-- **Worklogs allocation.** A colour-keyed line labelled "Allocation" under the table splits all your worklogs of the month into categories with their percentages (filters don't change it; hover for hours). By default: *Support* (issue type "Support Request", or projects Support Infrastructure, Customer Upgrade), *Implementation* (Project Handover, BKNN, Custom Development, Customer Projects, MRJ, Nativa Core Team, RPC Core Team, NETS Core Team, Sberbank), *SME* (Business Analysis, Worklogs from OWS JIRA, OpenWay Vendor Support, or "SME" in the summary), *Academy* (OW ACADEMY), *Apollo* (Apollo); the rest is *Other*. Edit, reorder or add categories in *Settings → Allocation*; the first match wins.
-- **Top clients.** A second line, labelled "Top clients", shows up to five clients with the most of your time this month (fewer if you worked for fewer), as a share of all your time. The client is read from a Jira field set per source in *Settings → Jira sources → Client field*: by default `customfield_11000` when the URL contains `ows-jira.spb.`, otherwise `customfield_10703`. Issues without a client are left out.
-- **Weekends** have the same light grey background as absence days.
-- **Sorted by time.** Issues with the most logged time in the month come first. The order is set when the month loads or refreshes, so rows don't jump while you type.
-- **Table font and size** are adjustable in Settings; the whole table scales with the size.
-- **Look.** By default: white background, #333333 top bar and table heading rows, the system font (Segoe UI on Windows, San Francisco on macOS) at 12px, regular weight, #333333 text and light #E7E7E7 grid lines (the *Classic* theme, with table details from the original Python app). In Settings you can change the theme (also light, dark or same as system), the table font (system font, Segoe UI with the Selawik look-alike where it isn't installed, Arial, and bundled Inter, Fira Sans, IBM Plex Sans, Questrial, IBM Plex Mono and Space Mono) and size, bold or regular table text, whether to show the issue type icons, and the background colour of the window and table. Decimal hours are shown with one decimal; the cell editor shows the exact value.
-- **Activity log** with every change sent to Jira and any error.
-- **Credentials** are encrypted with the OS keychain (Electron `safeStorage`). The app refuses to store them as plain text.
+Timesheets selects jira issues by the following JQL via jira API, and represents the data in the grid:
+
+```
+(worklogAuthor = currentuser() AND worklogDate >= startOfMonth(0) AND worklogDate <= endOfMonth(0))
+```
+
+![Image alt](https://github.com/mixaxa85/jira-timesheets/blob/main/JiraTS.png)
+
+Now you can add new worklog or update an existing one by just a double-click in a table cell. The application automatically registers/updates a worklog once the new value has been set.
+
+You can set spent time either in hours in **decimals** (1.5) or in jira-like format (e.g. **1h 45m**).
+
+You can optionally (see instructions below) set additional filters list (e.g. "Support tickets" / "Development"), see predefined filters for reference.
 
 ### How editing a cell maps to Jira
 
@@ -40,31 +33,23 @@ Lowering time avoids deletes because many Jira setups allow people to edit their
 
 The app asks for confirmation before deleting more than one worklog, or any worklog that has a comment. Comments and start times of existing worklogs are kept.
 
-## Differences from the Python version
+## First Run
 
-- No `var.json` or keyring command. Everything is set up in **Settings** inside the app.
-- Any number of Jira instances. A second instance is no longer required.
-- Any month, not only the current one.
-- Filters are JQL queries instead of project-key lists. The hardcoded `POWJ` exclusion is gone; use a filter or the extra JQL instead.
-- Clearing or reducing a cell works correctly. The Python version tried to set the worklog to 0, which Jira rejects.
-- The "worklogs" filter is optional and configurable per source. ScriptRunner is not needed.
+Builds are not signed with a paid certificate, so expect a warning on first launch:
 
-- **Updates.** *Settings → About & updates → Check for updates* asks GitHub Releases for a newer version, shows its notes and links the file for your computer (the portable exe on Windows, the dmg on macOS). Nothing is downloaded or installed automatically. This needs the GitHub repository to be public.
+- **Windows**: SmartScreen shows "Windows protected your PC". Click **More info → Run anyway**.
+- **macOS**: the app is ad-hoc signed, but it is not notarized. On first launch macOS says it cannot verify the app. Go to **System Settings → Privacy & Security** and click **Open Anyway**. Alternatively, remove the download quarantine in Terminal:
+
+  ```bash
+  xattr -cr "/Applications/Timesheets.app"
+  ```
 
 ## Setup
 
 1. Open **Settings**. On first launch the app opens there automatically.
-   On a company computer (Windows: logged on to the `openwaygroup.com` domain; macOS: an `openwaygroup.com` DNS search domain, or else a device name starting with `OW`), the first launch pre-sets two Jira sources: *Delivery* (`https://jira.spb.openwaygroup.com`, client field `customfield_10703`) and *RnD* (`https://ows-jira.spb.openwaygroup.com`, client field `customfield_11000`); only the login and password are left to fill in.
-2. For each Jira, fill in the following:
-   - **Base URL**: e.g. `https://jira.company.com` or `https://company.atlassian.net`
-   - **Jira type**: Server / Data Center or Cloud
-   - **Authentication**:
-     - Cloud: Atlassian email + [API token](https://id.atlassian.com/manage-profile/security/api-tokens)
-     - Server/DC: user name + password, or a personal access token
-   - **Extra issues JQL** (optional): e.g. `filter = worklogs`
-   - **Client field**: the Jira field with the client, for the top clients line (filled in from the URL)
-3. Click **Test connection**, then **Save settings**.
-4. Optionally add project filters, the worklog start time, the daily norm and the time format.
+Set login and password. The credentials stored securily in macOS Keychain / Windows Credential Locker.
+2. Click **Test connection**, then **Save settings**.
+3. Optionally add project filters, the worklog start time, the daily norm and the time format.
 
 Settings are stored in the app's profile folder. The exact path is shown at the bottom of Settings.
 
@@ -86,15 +71,6 @@ npm run dist:mac       # macOS dmg (run on a Mac)
 ```
 
 The GitHub Actions workflow `.github/workflows/build.yml` builds the Windows portable .exe and the macOS installers when you push a `v*` tag, and attaches them to the release. You can also run it manually.
-
-Builds are not signed with a paid certificate, so expect a warning on first launch:
-
-- **Windows**: SmartScreen shows "Windows protected your PC". Click **More info → Run anyway**.
-- **macOS**: the app is ad-hoc signed, but it is not notarized. On first launch macOS says it cannot verify the app. Go to **System Settings → Privacy & Security** and click **Open Anyway**. Alternatively, remove the download quarantine in Terminal:
-
-  ```bash
-  xattr -cr "/Applications/Timesheets.app"
-  ```
 
 ## Project layout
 
