@@ -4,34 +4,23 @@ A desktop app for managing your Jira worklogs in a monthly, spreadsheet-like gri
 
 You can add/modify your worklogs in several jira instances right in the table form - like in Excel
 
+![Timesheets main window](docs/screenshot.png)
+
 ## Features
 
-Timesheets selects jira issues by the following JQL via jira API, and represents the data in the grid:
+Timesheets selects jira issues from several Jira endpoints by the following JQL via jira API, and represents the data in the grid:
 
 ```
-(worklogAuthor = currentuser() AND worklogDate >= startOfMonth(0) AND worklogDate <= endOfMonth(0))
+(worklogAuthor = currentuser() AND worklogDate >= startOfMonth({{selected month}}) AND worklogDate <= endOfMonth({{selected month}}))
 ```
 
-![Timesheets main window](docs/screenshot.png)
+Additionally, it collects data on your registered absenses (e.g. vacations) from Jira, and updates the planned worklog indicators accordingly. See Settings -> Absenses
 
 Now you can add new worklog or update an existing one by just a double-click in a table cell. The application automatically registers/updates a worklog once the new value has been set.
 
 You can set spent time either in hours in **decimals** (1.5) or in jira-like format (e.g. **1h 45m**).
 
-You can optionally (see instructions below) set additional filters list (e.g. "Support tickets" / "Development"), see predefined filters for reference.
-
-### How editing a cell maps to Jira
-
-| Cell change | What is sent to Jira |
-|---|---|
-| empty → value | one new worklog, started at the configured time (default 09:00 local) |
-| value goes up | the difference is added to that day's latest worklog |
-| value goes down | worklogs are shortened, never deleted, as long as each can keep at least 1 minute (Jira's minimum) |
-| cleared | all of your worklogs on that cell are deleted |
-
-Lowering time avoids deletes because many Jira setups allow people to edit their own worklogs but not delete them. If your account cannot delete worklogs, clearing a cell keeps each worklog at 1 minute (the closest value Jira allows) and the Activity log says so.
-
-The app asks for confirmation before deleting more than one worklog, or any worklog that has a comment. Comments and start times of existing worklogs are kept.
+You can optionally set additional filters list (e.g. "Support tickets" / "Development"), see predefined filters for reference.
 
 ## First Run
 
