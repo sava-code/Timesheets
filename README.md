@@ -12,7 +12,7 @@ Timesheets selects jira issues by the following JQL via jira API, and represents
 (worklogAuthor = currentuser() AND worklogDate >= startOfMonth(0) AND worklogDate <= endOfMonth(0))
 ```
 
-![Image alt](https://github.com/mixaxa85/jira-timesheets/blob/main/JiraTS.png)
+![Timesheets main window](docs/screenshot.png)
 
 Now you can add new worklog or update an existing one by just a double-click in a table cell. The application automatically registers/updates a worklog once the new value has been set.
 
@@ -82,6 +82,8 @@ electron/
   jira-core.cjs     pure helpers: JQL, auth, mapping (unit-tested)
   storage*.cjs      settings file + encrypted secrets (unit-tested)
   domain.cjs        Windows domain / Mac DNS and name, for first-launch Jira presets
+docs/
+  screenshot.png    main window, for this README
 src/
   TimesheetView.tsx grid, keyboard editing, filters, activity log
   SettingsView.tsx  Jira sources, filters, preferences
