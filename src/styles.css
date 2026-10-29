@@ -1679,7 +1679,7 @@ label.check.standalone {
 
 .ruleRow {
   display: grid;
-  grid-template-columns: 130px 150px 1fr 88px;
+  grid-template-columns: 130px 1fr 2fr 120px 88px;
   align-items: center;
   gap: 8px;
   margin-top: 8px;
@@ -1780,19 +1780,6 @@ label.check.standalone {
 .quickFiltersHead {
   padding-top: 18px;
   border-top: 1px solid var(--border);
-}
-
-/* Allocation: loading alongside the grid, and categories whose JQL failed on a source. */
-.shareLoading {
-  color: color-mix(in srgb, var(--muted) 75%, var(--bg));
-  font-style: italic;
-}
-
-.shareCaption.warn {
-  color: var(--danger);
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-  cursor: help;
 }
 
 /* Remote desktop sessions (see electron/main.cjs): nothing animates, so fewer frames cross the network. */

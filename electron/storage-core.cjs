@@ -2,47 +2,25 @@
 
 const { DEFAULT_BASE_JQL } = require("./jira-core.cjs");
 
-const DATA_VERSION = 11;
+const DATA_VERSION = 10;
 
 // Worklogs allocation chart: categories checked in order, the first match wins, the rest is "Other".
 // A category matches an issue by type, by project (name or key) or by text in the summary.
 // Each list is comma-separated and case-insensitive.
-// Worklogs allocation: each worklog goes to the first category whose JQL matches its issue.
-// sourceId "" = the category is checked on every Jira source.
 const DEFAULT_ALLOCATION_RULES = [
-  { id: "support", name: "Support", sourceId: "", jql: 'issuetype in ("Support Request") OR project in ("Support Infrastructure", "Customer Upgrade")' },
+  { id: "support", name: "Support", types: "Support Request", projects: "Support Infrastructure, Customer Upgrade", summary: "" },
   {
     id: "implementation",
     name: "Implementation",
-    sourceId: "",
-    jql: 'project in ("Project Handover", "BKNN", "Custom Development", "Customer Projects", "MRJ", "Nativa Core Team", "RPC Core Team", "NETS Core Team", "Sberbank")'
+    types: "",
+    projects:
+      "Project Handover, BKNN, Custom Development, Customer Projects, MRJ, Nativa Core Team, RPC Core Team, NETS Core Team, Sberbank",
+    summary: ""
   },
-  {
-    id: "sme",
-    name: "SME",
-    sourceId: "",
-    jql: 'project in ("Business Analysis", "Worklogs from OWS JIRA", "OpenWay Vendor Support") OR summary ~ "SME"'
-  },
-  { id: "academy", name: "Academy", sourceId: "", jql: 'project in ("OW ACADEMY")' },
-  { id: "apollo", name: "Apollo", sourceId: "", jql: 'project in ("Apollo")' }
+  { id: "sme", name: "SME", types: "", projects: "Business Analysis, Worklogs from OWS JIRA, OpenWay Vendor Support", summary: "SME" },
+  { id: "academy", name: "Academy", types: "", projects: "OW ACADEMY", summary: "" },
+  { id: "apollo", name: "Apollo", types: "", projects: "Apollo", summary: "" }
 ];
-
-/** Categories up to version 10 listed issue types, projects and summary texts; the same as JQL. */
-function legacyRuleJql(rule) {
-  const items = (value) =>
-    String(value || "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-  const quote = (value) => `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-  const parts = [];
-  const types = items(rule.types);
-  const projects = items(rule.projects);
-  if (types.length) parts.push(`issuetype in (${types.map(quote).join(", ")})`);
-  if (projects.length) parts.push(`project in (${projects.map(quote).join(", ")})`);
-  for (const text of items(rule.summary)) parts.push(`summary ~ ${quote(text)}`);
-  return parts.join(" OR ");
-}
 
 // Absences (vacation, sick leave...) registered as Jira issues; their days are left out of the norm.
 // They are used whenever the JQL and both date fields are filled in.
@@ -135,13 +113,16 @@ function isCompanyComputer({ platform, dnsDomain = "", dnsSearchDomains = "", co
   return computerNames.some((name) => String(name || "").trim().startsWith("OW"));
 }
 
-/** Settings for a first launch; company users get the Delivery and RnD Jira sources. */
+/** Settings for a first launch; company users get the Delivery and RnD Jira sources and the allocation categories. */
 function initialData({ companyDomain = false } = {}) {
   const data = defaultData();
   if (companyDomain) {
     data.settings.jiraConnections = COMPANY_CONNECTIONS.map((preset) => ({ ...defaultConnection(0), ...preset }));
     // Absence requests live in the Delivery Jira.
     data.settings.absences.sourceId = COMPANY_CONNECTIONS[0].id;
+  } else {
+    // The default allocation categories are OpenWay's projects; others start without categories.
+    data.settings.allocationRules = [];
   }
   return data;
 }
@@ -221,17 +202,23 @@ function normalizeAbsences(value) {
   };
 }
 
-function normalizeAllocationRules(rules, version = DATA_VERSION) {
+function normalizeAllocationRules(rules) {
   if (!Array.isArray(rules)) return DEFAULT_ALLOCATION_RULES.map((rule) => ({ ...rule }));
+  const list = (value) =>
+    String(value || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .join(", ");
   // Categories without a name are dropped.
   return rules
     .filter((rule) => rule && typeof rule === "object" && String(rule.name || "").trim())
     .map((rule) => ({
       id: String(rule.id || makeId("category")),
       name: String(rule.name).trim(),
-      sourceId: String(rule.sourceId || ""),
-      // Version 11: issue types / projects / summary texts became one JQL.
-      jql: String(version < 11 && typeof rule.jql !== "string" ? legacyRuleJql(rule) : rule.jql || "").trim()
+      types: list(rule.types),
+      projects: list(rule.projects),
+      summary: list(rule.summary)
     }));
 }
 
@@ -311,7 +298,7 @@ function mergeDefaults(data) {
       allFilter: normalizeAllFilter(settings.allFilter),
       askComment: settings.askComment !== false,
       showTypeIcons: settings.showTypeIcons === true,
-      allocationRules: normalizeAllocationRules(settings.allocationRules, data ? version : DATA_VERSION),
+      allocationRules: normalizeAllocationRules(settings.allocationRules),
       absences: normalizeAbsences(
         data && version < 6 && String(settings.absences?.jql || "").trim() === PREVIOUS_ABSENCES_JQL
           ? { ...settings.absences, jql: DEFAULT_ABSENCES.jql }
@@ -384,7 +371,6 @@ function normalizeIncomingData(incoming, existing, safeStorage) {
 }
 
 module.exports = {
-  legacyRuleJql,
   absencesConfigured,
   defaultClientField,
   decryptToken,

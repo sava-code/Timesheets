@@ -42,9 +42,17 @@ function writeRawData(data) {
   fs.renameSync(tmp, file);
 }
 
-// First launch: company users (openwaygroup.com domain on Windows, "OW…" Mac) start with their Jira sources pre-set.
+let companyComputer;
+
+/** openwaygroup.com domain on Windows, openwaygroup.com DNS search domain or "OW…" name on a Mac. Checked once. */
+function isCompanyComputer() {
+  if (companyComputer === undefined) companyComputer = core.isCompanyComputer(computerIdentity());
+  return companyComputer;
+}
+
+// First launch: company users start with their Jira sources and allocation categories pre-set.
 function firstLaunchData() {
-  return core.initialData({ companyDomain: core.isCompanyComputer(computerIdentity()) });
+  return core.initialData({ companyDomain: isCompanyComputer() });
 }
 
 function readRawData() {
@@ -90,6 +98,7 @@ function sanitizeData(data) {
 }
 
 module.exports = {
+  isCompanyComputer,
   dataFilePath,
   decryptToken,
   normalizeIncomingData,

@@ -135,14 +135,4 @@ describe("jira-core", () => {
     expect(out).toEqual([2, 4, 6, 8, 10]);
     expect(peak).toBe(2);
   });
-
-  it("limits a category JQL to the month's base list", () => {
-    expect(core.allocationJql("2026-10", undefined, 'project in ("Apollo") ORDER BY key')).toBe(
-      '(worklogAuthor = currentUser() AND worklogDate >= "2026-10-01" AND worklogDate <= "2026-10-31") AND (project in ("Apollo"))'
-    );
-    expect(core.allocationJql("2026-02", "worklogAuthor = currentUser() AND worklogDate >= {monthStart} order by updated", "summary ~ SME")).toBe(
-      "(worklogAuthor = currentUser() AND worklogDate >= 2026-02-01) AND (summary ~ SME)"
-    );
-    expect(() => core.allocationJql("2026-10", undefined, "  ")).toThrow(/empty/);
-  });
 });

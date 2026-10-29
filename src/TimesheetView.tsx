@@ -13,7 +13,7 @@ import { ChevronLeft, ChevronRight, Code2, LoaderCircle, Paperclip, RefreshCw, S
 import { api, errorText } from "./api";
 import { tableFontStack } from "./fonts";
 import { AllocationChart } from "./AllocationChart";
-import type { AllocationResult, AppData, DisplayFormat, Issue, MonthResult, SearchResult, SourceError, Worklog } from "./types";
+import type { AppData, DisplayFormat, Issue, MonthResult, SearchResult, Worklog } from "./types";
 import { currentMonth, formatDuration, monthDays, monthLabel, parseDuration, shiftMonth, todayKey, type MonthDay } from "./time";
 import {
   absenceDays,
@@ -76,11 +76,6 @@ function withIssue(result: MonthResult, sourceId: string, issue: Issue): MonthRe
   };
 }
 
-/** "sourceId|issueKey" of every issue with your worklogs in the month. */
-function loggedKeys(result: MonthResult): Set<string> {
-  return new Set(result.sources.flatMap((source) => source.worklogs.map((worklog) => `${source.sourceId}|${worklog.issueKey}`)));
-}
-
 function shortDate(key: string) {
   const [, m, d] = key.split("-").map(Number);
   return new Date(2000, m - 1, d).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
@@ -91,6 +86,7 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
   const format = settings.displayFormat;
   const [month, setMonth] = useState(currentMonth());
   const [result, setResult] = useState<MonthResult | null>(null);
+  const allocation = useMemo(() => worklogAllocation(result, settings.allocationRules), [result, settings.allocationRules]);
   const clients = useMemo(() => topClients(result, 5), [result]);
   const [loading, setLoading] = useState(false);
   const [filterId, setFilterId] = useState("all");
@@ -141,7 +137,6 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
         const next = await api().fetchMonth(target);
         if (id !== requestId.current) return;
         setResult(next);
-        allocationKeys.current = loggedKeys(next);
         setLoadCount((count) => count + 1);
         for (const error of next.errors) {
           addLog("error", `${error.sourceName || error.sourceId}: ${error.message}`);
@@ -168,35 +163,6 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
     [addLog]
   );
 
-  // Worklogs allocation: one JQL search per category and source, loaded alongside the month (never
-  // holding up the grid). Keyed by month, categories and sources; kept while a refresh runs.
-  const rulesSignature = JSON.stringify(settings.allocationRules.map((rule) => [rule.id, rule.jql, rule.sourceId]));
-  const [allocationData, setAllocationData] = useState<{
-    key: string;
-    matches: AllocationResult["matches"];
-    errors: SourceError[];
-  } | null>(null);
-  const allocationRequest = useRef(0);
-  // Issue keys with your worklogs when the month was last loaded: the allocation covers these.
-  const allocationKeys = useRef<Set<string>>(new Set());
-  const loadAllocation = useCallback(
-    async (target: string, key: string) => {
-      const id = ++allocationRequest.current;
-      try {
-        const next = await api().fetchAllocation(target);
-        if (id !== allocationRequest.current) return;
-        setAllocationData({ key, matches: next.matches, errors: next.errors });
-        for (const error of next.errors) addLog("info", `Allocation · ${error.sourceName || error.sourceId}: ${error.message}`);
-      } catch (error) {
-        if (id === allocationRequest.current) {
-          setAllocationData({ key, matches: {}, errors: [] });
-          addLog("error", `Allocation failed: ${errorText(error)}`);
-        }
-      }
-    },
-    [addLog]
-  );
-
   // Reload when the month changes or the set of Jira sources is edited in Settings.
   const sourcesSignature = JSON.stringify([
     settings.jiraConnections.map((item) => [item.id, item.enabled, item.baseUrl, item.extraJql, item.tokenPresent]),
@@ -209,29 +175,6 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
     setEditing(null);
     void load(month);
   }, [month, sourcesSignature, load]);
-
-  const allocationKey = `${month}|${rulesSignature}|${sourcesSignature}`;
-  useEffect(() => {
-    if (settings.jiraConnections.some((item) => item.enabled && item.baseUrl)) void loadAllocation(month, allocationKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allocationKey, loadAllocation]);
-
-  // Time logged on an issue that had none this month: check the categories again.
-  useEffect(() => {
-    if (!result || result.month !== month) return;
-    const keys = loggedKeys(result);
-    if ([...keys].some((key) => !allocationKeys.current.has(key))) {
-      allocationKeys.current = keys;
-      void loadAllocation(month, allocationKey);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result]);
-
-  const allocationReady = allocationData?.key === allocationKey;
-  const allocation = useMemo(
-    () => worklogAllocation(result, settings.allocationRules, allocationData?.key === allocationKey ? allocationData.matches : null),
-    [result, settings.allocationRules, allocationData, allocationKey]
-  );
 
   // Which JQL decides the rows:
   // - the JQL search box, once run with Enter/Refresh (free: only its issues);
@@ -355,7 +298,6 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
     // Refresh also runs whatever is typed in the JQL search box.
     if (searchDraft.trim() !== searchJql) runSearch(searchDraft);
     void load(month);
-    void loadAllocation(month, allocationKey);
   };
 
   const days = useMemo(() => visibleDays(month, allRows, settings.showWeekends), [month, allRows, settings.showWeekends]);
@@ -920,8 +862,6 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
       <div onMouseOver={onGridMouseOver} onMouseLeave={hideTip}>
         <AllocationChart
           allocation={allocation}
-          allocationLoading={!allocationReady && Boolean(result?.sources.some((source) => source.worklogs.length))}
-          allocationErrors={allocationReady ? allocationData?.errors ?? [] : []}
           clients={clients}
           format={format}
           categories={settings.allocationRules.map((rule) => rule.name)}

@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("node:path");
-const { dataFilePath, normalizeIncomingData, readRawData, sanitizeData, writeRawData } = require("./storage.cjs");
+const { dataFilePath, isCompanyComputer, normalizeIncomingData, readRawData, sanitizeData, writeRawData } = require("./storage.cjs");
 const jira = require("./jira.cjs");
 const storageCore = require("./storage-core.cjs");
 const packageMetadata = require("../package.json");
@@ -114,28 +114,6 @@ ipcMain.handle("jira:fetchMonth", async (_event, month) => {
   return { month, sources, errors, configured: connections.length, absences, absenceErrors };
 });
 
-// Worklogs allocation for a month, loaded alongside jira:fetchMonth so the grid never waits for it.
-// matches[ruleId][sourceId] = issue keys of the month that the category's JQL matches.
-ipcMain.handle("jira:fetchAllocation", async (_event, month) => {
-  const data = readRawData();
-  const rules = data.settings.allocationRules.filter((rule) => rule.jql);
-  const matches = Object.fromEntries(rules.map((rule) => [rule.id, {}]));
-  const errors = [];
-  await Promise.all(
-    activeConnections(data).map(async (connection) => {
-      const own = rules.filter((rule) => !rule.sourceId || rule.sourceId === connection.id);
-      if (!own.length) return;
-      const result = await jira.fetchAllocation(connection, month, data.settings.baseJql, own);
-      for (const [ruleId, keys] of Object.entries(result.matches)) matches[ruleId][connection.id] = keys;
-      for (const error of result.errors) {
-        const rule = rules.find((item) => item.id === error.ruleId);
-        errors.push({ sourceId: connection.id, sourceName: connection.name, message: `${rule?.name || "Category"}: ${error.message}` });
-      }
-    })
-  );
-  return { month, matches, errors };
-});
-
 // Free JQL (search box or free filter): the issues it returns on every enabled source,
 // or only on the filter's own source.
 ipcMain.handle("jira:searchIssues", async (_event, jql, sourceId) => {
@@ -219,6 +197,7 @@ ipcMain.handle("update:check", async () => {
 ipcMain.handle("app:getInfo", async () => ({
   version: packageMetadata.version,
   remoteSession,
+  companyComputer: isCompanyComputer(),
   author: packageMetadata.author,
   releasesUrl: updates.GITHUB_RELEASES_URL,
   dataFilePath: dataFilePath()

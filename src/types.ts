@@ -21,21 +21,16 @@ export interface JiraConnection {
   clearToken?: boolean;
 }
 
-/** A worklogs allocation category: a worklog goes to the first category whose JQL matches its issue. */
+/** A worklogs allocation category. Lists are comma-separated; any match puts the issue in it. */
 export interface AllocationRule {
   id: string;
   name: string;
-  /** e.g. issuetype = "Support Request" OR project in ("Support Infrastructure") */
-  jql: string;
-  /** Jira source the JQL runs on; "" = every source. */
-  sourceId: string;
-}
-
-/** Which of the month's issues each category matches: matches[ruleId][sourceId] = issue keys. */
-export interface AllocationResult {
-  month: string;
-  matches: Record<string, Record<string, string[]>>;
-  errors: SourceError[];
+  /** Issue type names, e.g. "Support Request" */
+  types: string;
+  /** Project names or keys */
+  projects: string;
+  /** Text anywhere in the summary */
+  summary: string;
 }
 
 export interface FilterGroup {
@@ -189,6 +184,8 @@ export interface AppInfo {
   version: string;
   /** Running in a Windows remote desktop session (RDP, Citrix) */
   remoteSession?: boolean;
+  /** An OpenWay computer (see electron/domain.cjs): the default allocation categories apply */
+  companyComputer?: boolean;
   author?: string;
   releasesUrl?: string;
   dataFilePath: string;
@@ -198,7 +195,6 @@ export interface TimesheetsApi {
   loadData: () => Promise<AppData>;
   saveData: (data: AppData) => Promise<AppData>;
   fetchMonth: (month: string) => Promise<MonthResult>;
-  fetchAllocation: (month: string) => Promise<AllocationResult>;
   /** Issues returned by a free JQL on every enabled source. */
   /** Runs the JQL on every enabled source, or only on sourceId when given. */
   searchIssues: (jql: string, sourceId?: string) => Promise<SearchResult>;

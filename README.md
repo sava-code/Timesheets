@@ -24,8 +24,6 @@ You can optionally set additional filters list (e.g. "Support tickets" / "Develo
 
 Issue type icons next to the summaries are off by default; switch them on in Settings -> Appearance.
 
-Under the table, the Allocation line splits the month's worklogs into categories, each defined by a JQL (e.g. `project in ("Custom Development", MRJ) OR summary ~ "SME"`), optionally on one Jira source; a worklog goes to the first category that matches. See Settings -> Allocation. It loads alongside the grid, so the table never waits for it.
-
 On a Windows remote desktop (RDP, Citrix) the app switches off GPU acceleration, smooth scrolling and animations, which are slow over a remote connection.
 
 ## First Run

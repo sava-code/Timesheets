@@ -519,8 +519,6 @@ describe("Timesheet grid", () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByLabelText(issueLink("INT-15"));
-    // The categories load alongside the grid: "Loading…" first, then the legend.
-    await waitFor(() => expect(within(screen.getByRole("region", { name: "Worklogs allocation" })).queryByRole("status")).toBeNull());
     const chart = screen.getByRole("region", { name: "Worklogs allocation" });
     // Legend only: no bar and no title.
     expect(chart.querySelector(".allocationBar")).toBeNull();
@@ -554,12 +552,6 @@ describe("Timesheet grid", () => {
     await user.type(name, "Help desk");
     await user.click(screen.getByRole("button", { name: "Move Help desk down" }));
     expect(screen.getByLabelText("Category name 2")).toHaveValue("Help desk");
-    // Each category is a JQL, optionally on one Jira source.
-    expect(screen.getByLabelText("JQL for Help desk")).toHaveValue(
-      'issuetype in ("Support Request") OR project in ("Support Infrastructure", "Customer Upgrade")'
-    );
-    expect(screen.getByLabelText("Jira source for Help desk")).toHaveValue("");
-    expect(screen.queryByLabelText(/Issue types for/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /save settings/i }));
     await screen.findByText("Settings saved.");
     await user.click(screen.getByRole("button", { name: /timesheet/i }));

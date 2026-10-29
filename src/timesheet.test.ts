@@ -256,34 +256,46 @@ describe("updateSourceWorklogs", () => {
 
 describe("worklog allocation", () => {
   const rules = DEFAULT_ALLOCATION_RULES;
-  // What Jira returned for each category's JQL, per source.
-  const matches = {
-    support: { a: ["SUP-10", "SUP-9"] },
-    apollo: { a: ["SUP-9"], b: ["SUP-9"] },
-    sme: { b: ["X-1"] }
-  };
+  const of = (fields: Partial<ReturnType<typeof issue>> & { issueType?: string; projectName?: string }) =>
+    allocationCategory({ ...issue("a", "X-1"), ...fields }, rules);
 
-  it("puts an issue in the first category whose JQL matched it on its source", () => {
-    expect(allocationCategory("a", "SUP-9", rules, matches)).toBe("Support");
-    expect(allocationCategory("b", "SUP-9", rules, matches)).toBe("Apollo");
-    expect(allocationCategory("b", "X-1", rules, matches)).toBe("SME");
-    expect(allocationCategory("a", "X-1", rules, matches)).toBe("Other");
-    expect(allocationCategory("a", "INT-1", rules, {})).toBe("Other");
-    // Settings order decides: Apollo first wins over Support.
-    const apolloFirst = [rules[4], ...rules.slice(0, 4)];
-    expect(allocationCategory("a", "SUP-9", apolloFirst, matches)).toBe("Apollo");
+  it("puts an issue in the first category it matches", () => {
+    expect(of({ issueType: "Support Request", projectName: "Apollo" })).toBe("Support");
+    expect(of({ projectName: "Customer Upgrade" })).toBe("Support");
+    expect(of({ projectName: "nets core team" })).toBe("Implementation");
+    expect(of({ projectName: "Business Analysis" })).toBe("SME");
+    expect(of({ projectName: "Internal", summary: "SME review of the export" })).toBe("SME");
+    expect(of({ projectName: "OW ACADEMY" })).toBe("Academy");
+    expect(of({ projectName: "Apollo" })).toBe("Apollo");
+    expect(of({ projectName: "Internal", summary: "Team meeting" })).toBe("Other");
+    // Project keys work too.
+    expect(allocationCategory({ ...issue("a", "APL-1") }, [{ id: "x", name: "Apollo", types: "", projects: "APL", summary: "" }])).toBe("Apollo");
+    expect(allocationCategory(undefined, rules)).toBe("Other");
   });
 
   it("splits all worklogs of the month by category, largest first", () => {
-    // a: SUP-10 2h, SUP-9 1.5h (both Support); b: SUP-9 15m (Apollo).
-    expect(worklogAllocation(result, rules, matches).map((share) => [share.name, share.seconds, Math.round(share.percent * 100) / 100])).toEqual([
-      ["Support", 12600, 93.33],
-      ["Apollo", 900, 6.67]
+    const month: MonthResult = {
+      ...result,
+      sources: [
+        {
+          ...result.sources[0],
+          issues: [
+            { ...issue("a", "SUP-10"), projectName: "Support Infrastructure" },
+            { ...issue("a", "SUP-9"), projectName: "Apollo" },
+            { ...issue("a", "INT-1"), projectName: "Internal" }
+          ]
+        },
+        result.sources[1]
+      ]
+    };
+    // a: SUP-10 2h Support, SUP-9 1.5h Apollo; b: SUP-9 15m without a project -> Other.
+    expect(worklogAllocation(month, rules).map((share) => [share.name, share.seconds, Math.round(share.percent * 100) / 100])).toEqual([
+      ["Support", 7200, 53.33],
+      ["Apollo", 5400, 40],
+      ["Other", 900, 6.67]
     ]);
-    expect(worklogAllocation(result, rules, { apollo: { b: ["SUP-9"] } }).map((share) => share.name)).toEqual(["Other", "Apollo"]);
-    // Nothing until the categories have been checked.
-    expect(worklogAllocation(result, rules, null)).toEqual([]);
-    expect(worklogAllocation(null, rules, matches)).toEqual([]);
+    expect(worklogAllocation(null, rules)).toEqual([]);
+    expect(worklogAllocation(month, [])).toEqual([]);
   });
 });
 

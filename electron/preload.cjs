@@ -4,7 +4,6 @@ contextBridge.exposeInMainWorld("timesheets", {
   loadData: () => ipcRenderer.invoke("data:load"),
   saveData: (data) => ipcRenderer.invoke("data:save", data),
   fetchMonth: (month) => ipcRenderer.invoke("jira:fetchMonth", month),
-  fetchAllocation: (month) => ipcRenderer.invoke("jira:fetchAllocation", month),
   searchIssues: (jql, sourceId) => ipcRenderer.invoke("jira:searchIssues", jql, sourceId),
   matchFilter: (jql, keysBySource) => ipcRenderer.invoke("jira:matchFilter", jql, keysBySource),
   createWorklog: (sourceId, payload) => ipcRenderer.invoke("jira:createWorklog", sourceId, payload),
