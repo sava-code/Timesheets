@@ -1789,3 +1789,15 @@ label.check.standalone {
   transition: none !important;
   scroll-behavior: auto !important;
 }
+
+/* Top bar: a newer version found when the app opened. */
+.tabs button.updateNotice {
+  opacity: 1;
+  margin-right: 8px;
+  background: color-mix(in srgb, var(--accent) 85%, transparent);
+  color: #fff;
+}
+
+.tabs button.updateNotice:hover {
+  background: var(--accent);
+}

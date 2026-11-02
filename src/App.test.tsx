@@ -440,13 +440,37 @@ describe("Timesheet grid", () => {
     expect(screen.getByLabelText("Absences JQL")).toBeInTheDocument();
     expect(screen.queryByLabelText("JQL for All")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "About & updates" }));
+    // The check on start already marks the tab; checking again from the tab works too.
+    await user.click(screen.getByRole("tab", { name: /About & updates/ }));
     await user.click(screen.getByRole("button", { name: /check for updates/i }));
     expect(await screen.findByText("Version 0.9.0 is available.")).toBeInTheDocument();
     expect(screen.getByText(/Demo release notes/)).toBeInTheDocument();
     expect(screen.getByLabelText("Update available")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Download Timesheets-0.9.0-mac-universal.dmg/ }));
     expect(open).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/github.com\/sava-code\/Timesheets\/releases\/download\//));
+  });
+
+  it("checks for a new version when the app opens and links the notice to About & updates", async () => {
+    window.timesheets = createDevApi({ latestVersion: "0.9.0", askComment: false });
+    const check = vi.spyOn(window.timesheets, "checkForUpdates");
+    const user = userEvent.setup();
+    render(<App />);
+    const notice = await screen.findByRole("button", { name: /Version 0\.9\.0 available/ });
+    expect(check).toHaveBeenCalledTimes(1);
+    await user.click(notice);
+    expect(screen.getByRole("tab", { name: /About & updates/ })).toHaveAttribute("aria-selected", "true");
+    // The result from the start is shown without checking again.
+    expect(screen.getByText("Version 0.9.0 is available.")).toBeInTheDocument();
+    expect(check).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows no update notice when the app is up to date", async () => {
+    const check = vi.spyOn(window.timesheets, "checkForUpdates");
+    render(<App />);
+    await screen.findByLabelText(issueLink("INT-15"));
+    await waitFor(() => expect(check).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(screen.queryByRole("button", { name: /available/ })).not.toBeInTheDocument();
   });
 
   it("shows Due, Month, Left to post and Timeliness next to Refresh", async () => {

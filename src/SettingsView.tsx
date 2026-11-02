@@ -31,11 +31,16 @@ import { DEFAULT_ALLOCATION_RULES } from "./timesheet";
 interface Props {
   data: AppData;
   onSaved: (data: AppData) => void;
+  /** Update check result, shared with the app (it checks once on start). */
+  update: UpdateStatus | null;
+  onUpdate: (update: UpdateStatus) => void;
+  /** Tab to switch to, e.g. "about" from the update notice; a new count asks again. */
+  tabRequest?: { tab: SettingsTab; count: number } | null;
 }
 
 type TestState = { status: "running" } | { status: "ok"; text: string } | { status: "error"; text: string };
 
-type SettingsTab = "jira" | "filters" | "absences" | "timesheet" | "allocation" | "appearance" | "about";
+export type SettingsTab = "jira" | "filters" | "absences" | "timesheet" | "allocation" | "appearance" | "about";
 
 const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: typeof Server }> = [
   { id: "jira", label: "Jira sources", icon: Server },
@@ -49,7 +54,6 @@ const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: typeof Server
 
 // Remembered while the app runs, so Settings reopens on the last tab.
 let lastTab: SettingsTab = "jira";
-let lastUpdate: UpdateStatus | null = null;
 
 const DEFAULT_BASE_JQL = 'worklogAuthor = currentUser() AND worklogDate >= "{monthStart}" AND worklogDate <= "{monthEnd}"';
 
@@ -85,19 +89,24 @@ function newConnection(index: number): JiraConnection {
   };
 }
 
-export function SettingsView({ data, onSaved }: Props) {
+export function SettingsView({ data, onSaved, update, onUpdate: setUpdate, tabRequest }: Props) {
   const [draft, setDraft] = useState<Settings>(data.settings);
   const [tests, setTests] = useState<Record<string, TestState>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [tab, setTab] = useState<SettingsTab>(lastTab);
-  const [update, setUpdate] = useState<UpdateStatus | null>(lastUpdate);
 
   const selectTab = (next: SettingsTab) => {
     lastTab = next;
     setTab(next);
   };
+
+  // Switch tabs when asked (the update notice in the top bar), keeping any unsaved changes.
+  useEffect(() => {
+    if (tabRequest) selectTab(tabRequest.tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabRequest]);
 
   const checkUpdates = async () => {
     setUpdate({ stage: "checking", currentVersion: info?.version || "", releaseUrl: "", message: "Checking GitHub Releases…" });
@@ -107,7 +116,6 @@ export function SettingsView({ data, onSaved }: Props) {
     } catch (error) {
       next = { stage: "error", currentVersion: info?.version || "", releaseUrl: info?.releasesUrl || "", message: errorText(error) };
     }
-    lastUpdate = next;
     setUpdate(next);
   };
 
