@@ -20,7 +20,9 @@ function buildAuthHeader(connection, token) {
     return `Bearer ${token}`;
   }
   if (!connection.email) {
-    throw new Error("User name/email is required for basic auth.");
+    const error = new Error("User name/email is required for basic auth.");
+    error.code = "NO_USER";
+    throw error;
   }
   return `Basic ${Buffer.from(`${connection.email}:${token}`).toString("base64")}`;
 }
@@ -223,7 +225,26 @@ function validateSeconds(seconds) {
   return value;
 }
 
+/**
+ * Other ways to send the same secret when Jira rejects it (401/403): a personal access token typed as a
+ * password on Server/DC works as Bearer; a Cloud API token sent as Bearer works as Basic with the email.
+ */
+function alternativeAuthTypes(connection) {
+  if (connection.authType === "bearer") return connection.email ? ["basic"] : [];
+  return apiVersion(connection) === "2" ? ["bearer"] : [];
+}
+
+/** Jira answered 200 but not with a user: usually a sign-in page from single sign-on. */
+function isJiraUser(payload) {
+  return Boolean(payload && typeof payload === "object" && !payload.raw && (payload.accountId || payload.name || payload.key));
+}
+
+const AUTH_HINT =
+  "On Server / Data Center a token from your Jira profile is a personal access token: choose Authentication = Personal access token. " +
+  "On Cloud choose Email + API token and use your Atlassian email.";
+
 function errorMessage(status, statusText, payload) {
+  if (status === 401) return `Jira rejected the login (401 Unauthorized). ${AUTH_HINT}`;
   const fieldErrors = payload?.errors && typeof payload.errors === "object" ? Object.values(payload.errors) : [];
   return (
     [...(payload?.errorMessages || []), ...fieldErrors].filter(Boolean).join("; ") ||
@@ -257,6 +278,8 @@ function issueFields(connection) {
 
 module.exports = {
   DEFAULT_BASE_JQL,
+  alternativeAuthTypes,
+  isJiraUser,
   adfComment,
   newWorklogBody,
   apiVersion,

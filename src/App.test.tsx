@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createDevApi } from "./devApi";
 import { currentMonth, monthDays, todayKey } from "./time";
@@ -45,9 +45,17 @@ function cell(rowId: string, day: string) {
 
 describe("Timesheet grid", () => {
   beforeEach(() => {
+    // The demo logs time only up to today: a fixed mid-month date keeps the tests independent of
+    // the day they run (in the first days of a month there would be almost no worklogs).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 21, 12, 0, 0));
     // Most tests edit cells without the comment window; its own test turns it back on.
     window.timesheets = createDevApi({ askComment: false });
     Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("creates, updates and clears a worklog from the keyboard", async () => {

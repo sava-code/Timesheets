@@ -82,6 +82,31 @@ describe("jira-core", () => {
     expect(() => core.buildAuthHeader({ authType: "bearer" }, "")).toThrow(/token/);
   });
 
+  it("knows the other way to send a rejected secret", () => {
+    // A personal access token typed as a password on Server/DC: try it as Bearer.
+    expect(core.alternativeAuthTypes({ authType: "basic", apiVersion: "2", email: "u" })).toEqual(["bearer"]);
+    expect(core.alternativeAuthTypes({ authType: "basic", apiVersion: "2", email: "" })).toEqual(["bearer"]);
+    // Cloud API tokens never work as Bearer.
+    expect(core.alternativeAuthTypes({ authType: "basic", apiVersion: "3", email: "u@x.com" })).toEqual([]);
+    // A Cloud API token chosen as Bearer: Basic needs the email.
+    expect(core.alternativeAuthTypes({ authType: "bearer", apiVersion: "3", email: "u@x.com" })).toEqual(["basic"]);
+    expect(core.alternativeAuthTypes({ authType: "bearer", apiVersion: "2", email: "" })).toEqual([]);
+    try {
+      core.buildAuthHeader({ authType: "basic", email: "" }, "p");
+    } catch (error) {
+      expect(error.code).toBe("NO_USER");
+    }
+  });
+
+  it("tells a Jira user from a sign-in page and explains a rejected login", () => {
+    expect(core.isJiraUser({ name: "msavin", displayName: "M" })).toBe(true);
+    expect(core.isJiraUser({ accountId: "5b10" })).toBe(true);
+    expect(core.isJiraUser({ raw: "<html>Log in</html>" })).toBe(false);
+    expect(core.isJiraUser(null)).toBe(false);
+    expect(core.errorMessage(401, "Unauthorized", null)).toMatch(/401 Unauthorized.*Personal access token/);
+    expect(core.errorMessage(400, "Bad Request", { errorMessages: ["Bad JQL"] })).toBe("Bad JQL");
+  });
+
   it("recognises the current user's worklogs on Cloud and Server", () => {
     expect(core.isOwnWorklog({ author: { accountId: "x1" } }, { accountId: "x1" })).toBe(true);
     expect(core.isOwnWorklog({ author: { accountId: "x2" } }, { accountId: "x1" })).toBe(false);
@@ -119,7 +144,7 @@ describe("jira-core", () => {
 
   it("collects Jira error messages", () => {
     expect(core.errorMessage(400, "Bad Request", { errorMessages: [], errors: { timeLogged: "Invalid time" } })).toBe("Invalid time");
-    expect(core.errorMessage(401, "Unauthorized", null)).toBe("401 Unauthorized");
+    expect(core.errorMessage(401, "Unauthorized", null)).toMatch(/^Jira rejected the login \(401 Unauthorized\)/);
   });
 
   it("limits concurrency", async () => {

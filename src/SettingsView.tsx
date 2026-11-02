@@ -221,9 +221,22 @@ export function SettingsView({ data, onSaved }: Props) {
     setTests((current) => ({ ...current, [connection.id]: { status: "running" } }));
     try {
       const result = await api().testConnection(connection);
+      // The secret worked only the other way (e.g. a personal access token typed as a password): switch to it.
+      const switched = result.authType && result.authType !== connection.authType ? result.authType : null;
+      if (switched) patchConnection(connection.id, { authType: switched });
+      const who = `Connected as ${result.displayName}${result.emailAddress ? ` (${result.emailAddress})` : ""}`;
       setTests((current) => ({
         ...current,
-        [connection.id]: { status: "ok", text: `Connected as ${result.displayName}${result.emailAddress ? ` (${result.emailAddress})` : ""}` }
+        [connection.id]: {
+          status: "ok",
+          text: switched
+            ? `${who}. Authentication was switched to ${
+                switched === "bearer"
+                  ? connection.apiVersion === "3" ? "Bearer token" : "Personal access token"
+                  : connection.apiVersion === "3" ? "Email + API token" : "User name + password"
+              }; save settings to keep it.`
+            : who
+        }
       }));
     } catch (error) {
       setTests((current) => ({ ...current, [connection.id]: { status: "error", text: errorText(error) } }));
@@ -337,8 +350,8 @@ export function SettingsView({ data, onSaved }: Props) {
                             value={connection.authType}
                             onChange={(event) => patchConnection(connection.id, { authType: event.target.value as "basic" | "bearer" })}
                           >
-                            <option value="basic">Password / API token</option>
-                            <option value="bearer">Personal access token</option>
+                            <option value="basic">{connection.apiVersion === "3" ? "Email + API token" : "User name + password"}</option>
+                            <option value="bearer">{connection.apiVersion === "3" ? "Bearer token" : "Personal access token"}</option>
                           </select>
                         </label>
                         {connection.authType === "basic" && (

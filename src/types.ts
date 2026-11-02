@@ -206,7 +206,9 @@ export interface TimesheetsApi {
     payload: { issueKey: string; worklogId: string; seconds: number; started?: string }
   ) => Promise<Worklog>;
   deleteWorklog: (sourceId: string, payload: { issueKey: string; worklogId: string }) => Promise<{ ok: boolean }>;
-  testConnection: (connection: JiraConnection) => Promise<{ ok: boolean; displayName: string; emailAddress?: string }>;
+  testConnection: (
+    connection: JiraConnection
+  ) => Promise<{ ok: boolean; displayName: string; emailAddress?: string; authType?: "basic" | "bearer" }>;
   openExternal: (url: string) => Promise<void>;
   getAppInfo: () => Promise<AppInfo>;
   checkForUpdates: () => Promise<UpdateStatus>;

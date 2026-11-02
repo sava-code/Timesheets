@@ -275,12 +275,39 @@ async function matchFilter(connection, jql, keys) {
   return matched;
 }
 
+/**
+ * Checks the login. If Jira rejects the chosen authentication, tries the other way to send the same
+ * secret and reports which one worked (authType), so Settings can switch to it.
+ */
 async function testConnection(connection) {
-  const myself = await getMyself(connection);
+  let myself;
+  let authType = connection.authType === "bearer" ? "bearer" : "basic";
+  try {
+    myself = await getMyself(connection);
+  } catch (error) {
+    // Rejected, or a token without a user name: maybe the secret is meant the other way.
+    if (error.status !== 401 && error.status !== 403 && error.code !== "NO_USER") throw error;
+    for (const other of core.alternativeAuthTypes(connection)) {
+      try {
+        myself = await getMyself({ ...connection, authType: other });
+        authType = other;
+        break;
+      } catch (_retry) {
+        // Keep the original error.
+      }
+    }
+    if (!myself) throw error;
+  }
+  if (!core.isJiraUser(myself)) {
+    throw new Error(
+      "Jira answered with a web page instead of your user, probably a sign-in page (single sign-on). Check the Base URL and the token."
+    );
+  }
   return {
     ok: true,
-    displayName: myself?.displayName || myself?.name || "Connected",
-    emailAddress: myself?.emailAddress || ""
+    authType,
+    displayName: myself.displayName || myself.name || "Connected",
+    emailAddress: myself.emailAddress || ""
   };
 }
 
