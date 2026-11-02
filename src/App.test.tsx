@@ -488,10 +488,11 @@ describe("Timesheet grid", () => {
     expect(indicators.every((item) => item.querySelector(".indicatorValue"))).toBe(true);
     expect(indicators[0]).toHaveClass("neutral");
     expect(indicators[1]).toHaveClass("neutral");
-    // Timeliness: one of the scale levels, explained in the hint.
-    expect(indicatorValue("Timeliness")).toMatch(/^(100|90|70|50|30|10)%$/);
-    expect(indicators[3].title).toMatch(/how soon worklogs are posted/);
-    expect(indicators[3].title).toMatch(/up to 3 working days: 100%/);
+    // Timeliness: a percentage averaged by hours, explained in the hint with its parts and the scale.
+    expect(indicatorValue("Timeliness")).toMatch(/^\d{1,3}%$/);
+    expect(indicators[3].title).toMatch(/how soon your time gets into Jira/);
+    expect(indicators[3].title).toMatch(/Logged: \d+% \(/);
+    expect(indicators[3].title).toMatch(/0–3 working days: 100%/);
     expect(screen.queryByText("Logged")).not.toBeInTheDocument();
   });
 

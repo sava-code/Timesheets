@@ -1,3 +1,4 @@
+import { monthDays } from "./time";
 import { describe, expect, it } from "vitest";
 import type { MonthResult, Worklog } from "./types";
 import {
@@ -5,7 +6,7 @@ import {
   qualityMessage,
   qualityScaleText,
   workingDaysBetween,
-  worklogQuality,
+  timeliness,
   absenceDays,
   allocationCategory,
   DEFAULT_ALLOCATION_RULES,
@@ -122,42 +123,88 @@ describe("buildRows", () => {
   });
 });
 
-describe("worklogQuality", () => {
+describe("timeliness", () => {
   const logged = (date: string, created: string, seconds = 3600) => ({ ...wl("1", date, seconds), created });
+  const vacation = { key: "CAL-1", summary: "Vacation", status: "", from: "2026-10-12", to: "2026-10-16", url: "" };
+  // Every working day of October 2026 fully logged, entered the same day.
+  const fullMonth = (except: string[] = []) =>
+    monthDays("2026-10")
+      .filter((day) => !day.isWeekend && !except.includes(day.key))
+      .map((day) => logged(day.key, `${day.key}T18:00:00.000+0200`, 8 * 3600));
 
-  it("counts working days, skipping weekends", () => {
+  it("counts working days, skipping weekends and absences", () => {
     expect(workingDaysBetween("2026-10-09", "2026-10-12")).toBe(1); // Fri -> Mon
     expect(workingDaysBetween("2026-10-05", "2026-10-05")).toBe(0); // same day
     expect(workingDaysBetween("2026-10-05", "2026-10-19")).toBe(10); // two weeks
     expect(workingDaysBetween("2026-10-10", "2026-10-11")).toBe(0); // Sat -> Sun
     expect(workingDaysBetween("2026-10-09", "2026-10-05")).toBe(0); // entered in advance
+    expect(workingDaysBetween("2026-09-30", "2026-10-02")).toBe(2); // across months
+    const off = (key: string) => key >= "2026-10-12" && key <= "2026-10-16";
+    expect(workingDaysBetween("2026-10-09", "2026-10-19", off)).toBe(1); // Fri, a week off, Mon
   });
 
-  it("places the time-weighted average delay on the scale", () => {
-    const at = (delayDays: number) => qualityForDelay(delayDays);
-    expect([0, 3, 3.1, 5, 5.5, 10, 12, 15, 18, 20, 21, 60].map(at)).toEqual([100, 100, 90, 90, 70, 70, 50, 50, 30, 30, 10, 10]);
-    // 6h entered the same day, 2h entered 16 working days later: (0*6 + 16*2) / 8 = 4 -> 90%
-    const quality = worklogQuality([
-      logged("2026-10-01", "2026-10-01T18:00:00.000+0200", 6 * 3600),
-      logged("2026-10-01", "2026-10-23T10:00:00.000+0200", 2 * 3600)
-    ])!;
-    expect(quality.averageDelay).toBe(4);
-    expect(quality.percent).toBe(90);
+  it("places each delay on the scale", () => {
+    expect([0, 3, 4, 5, 6, 10, 12, 15, 18, 20, 21, 60].map(qualityForDelay)).toEqual([100, 100, 90, 90, 70, 70, 50, 50, 30, 30, 10, 10]);
   });
 
-  it("is 100% within 3 working days and ignores unknown creation dates", () => {
-    expect(worklogQuality([logged("2026-10-09", "2026-10-14T09:00:00.000+0200")])!.percent).toBe(100); // Fri -> Wed = 3
-    expect(worklogQuality([{ ...wl("1", "2026-10-05", 3600), created: "" }])).toBeNull();
-    expect(worklogQuality([])).toBeNull();
+  it("scores each worklog by its own delay and averages by hours", () => {
+    // 4h entered 2 working days late (100%), 1h entered 8 working days late (70%): (100*4 + 70*1) / 5 = 94%.
+    const result = timeliness({
+      worklogs: [logged("2026-10-01", "2026-10-05T10:00:00.000+0200", 4 * 3600), logged("2026-10-01", "2026-10-13T10:00:00.000+0200", 3600)],
+      month: "2026-10",
+      today: "2026-10-01",
+      normSeconds: 8 * 3600
+    })!;
+    expect(result.percent).toBe(94);
+    expect(result.logged).toEqual({ percent: 94, seconds: 5 * 3600, count: 2 });
+    expect(result.missing).toBeNull(); // nothing is due before today
+    // Worklogs without a creation date are skipped.
+    expect(timeliness({ worklogs: [{ ...wl("1", "2026-10-01", 3600), created: "" }], month: "2026-10", today: "2026-10-01", normSeconds: 8 * 3600 })).toBeNull();
+  });
+
+  it("scores time not logged yet as if it were logged today, day by day", () => {
+    // Today Fri 2026-10-30. Mon 26 – Thu 29 not logged at all: 1-4 working days ago -> 100, 100, 100, 90.
+    const missing = ["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29"];
+    const result = timeliness({ worklogs: fullMonth([...missing, "2026-10-30"]), month: "2026-10", today: "2026-10-30", normSeconds: 8 * 3600 })!;
+    expect(result.missing).toEqual({ percent: (100 * 3 + 90) / 4, seconds: 32 * 3600, count: 4 });
+    expect(result.logged!.percent).toBe(100);
+    // 17 logged days at 100% and 4 missing days averaging 97.5%, all 8h each.
+    expect(result.percent).toBeCloseTo((17 * 100 + 3 * 100 + 90) / 21, 6);
+    // Today itself is never counted as missing.
+    expect(timeliness({ worklogs: fullMonth(["2026-10-30"]), month: "2026-10", today: "2026-10-30", normSeconds: 8 * 3600 })!.missing).toBeNull();
+  });
+
+  it("counts a short day per day: extra hours on one day don't cover another", () => {
+    const worklogs = fullMonth(["2026-10-01"]).map((item) => (item.date === "2026-10-02" ? { ...item, seconds: 12 * 3600 } : item));
+    worklogs.push(logged("2026-10-01", "2026-10-01T18:00:00.000+0200", 6 * 3600));
+    const result = timeliness({ worklogs, month: "2026-10", today: "2026-10-30", normSeconds: 8 * 3600 })!;
+    // Only the 2h missing on Oct 1 count; Oct 1 is 21 working days before Oct 30 -> 10%.
+    expect(result.missing).toEqual({ percent: 10, seconds: 2 * 3600, count: 1 });
+    // Mid-month it would still score 70%: Oct 1 -> Oct 9 is 6 working days.
+    expect(timeliness({ worklogs, month: "2026-10", today: "2026-10-09", normSeconds: 8 * 3600 })!.missing!.percent).toBe(70);
+  });
+
+  it("leaves absences out of the missing time and of the delays", () => {
+    const vacationDays = ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"];
+    const worklogs = fullMonth([...vacationDays, "2026-10-09"]);
+    // Friday's time entered on the Monday after the vacation week: 1 working day late, not 6.
+    worklogs.push(logged("2026-10-09", "2026-10-19T09:00:00.000+0200", 8 * 3600));
+    const result = timeliness({ worklogs, month: "2026-10", today: "2026-10-30", normSeconds: 8 * 3600, absences: [vacation] })!;
+    expect(result.missing).toBeNull();
+    expect(result.percent).toBe(100);
+    // Without the absence, the vacation week is missing and Friday's worklog is 6 days late.
+    const without = timeliness({ worklogs, month: "2026-10", today: "2026-10-30", normSeconds: 8 * 3600 })!;
+    expect(without.missing!.count).toBe(5);
+    expect(without.percent).toBeLessThan(100);
   });
 
   it("describes the scale and has a line for every level", () => {
     expect(qualityScaleText().split("\n")).toEqual([
-      "up to 3 working days: 100%",
-      "3–5 working days: 90%",
-      "5–10 working days: 70%",
-      "10–15 working days: 50%",
-      "15–20 working days: 30%",
+      "0–3 working days: 100%",
+      "4–5 working days: 90%",
+      "6–10 working days: 70%",
+      "11–15 working days: 50%",
+      "16–20 working days: 30%",
       "over 20 working days: 10%"
     ]);
     expect(qualityMessage(100)).toBe("You are the best!");

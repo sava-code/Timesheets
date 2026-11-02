@@ -107,37 +107,48 @@ export function filterRows(rows: Row[], matched: Set<string> | null, search: str
   });
 }
 
+/** The day after a YYYY-MM-DD date. */
+function nextDay(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+}
+
+function isWeekendKey(key: string): boolean {
+  const [y, m, d] = key.split("-").map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return dow === 0 || dow === 6;
+}
+
 /**
- * Working days (Mon-Fri) from date `a` to date `b` (YYYY-MM-DD): the weekdays after `a` up to and
- * including `b`. A Friday worklog entered on Monday is 1 working day late. 0 if `b` is not after `a`.
+ * Working days from date `a` to date `b` (YYYY-MM-DD): the weekdays after `a` up to and including `b`,
+ * minus any `isDayOff` days (absences). A Friday worklog entered on Monday is 1 working day late.
+ * 0 if `b` is not after `a`.
  */
-export function workingDaysBetween(a: string, b: string): number {
-  const [ya, ma, da] = a.split("-").map(Number);
-  const [yb, mb, db] = b.split("-").map(Number);
-  const start = Date.UTC(ya, ma - 1, da);
-  const end = Date.UTC(yb, mb - 1, db);
-  if (!(end > start)) return 0;
-  const totalDays = Math.round((end - start) / 86_400_000);
-  const fullWeeks = Math.floor(totalDays / 7);
-  let count = fullWeeks * 5;
-  // The remaining days after the full weeks
-  const startDow = new Date(start).getUTCDay();
-  for (let offset = 1; offset <= totalDays - fullWeeks * 7; offset++) {
-    const dow = (startDow + offset) % 7;
-    if (dow !== 0 && dow !== 6) count += 1;
+export function workingDaysBetween(a: string, b: string, isDayOff: (key: string) => boolean = () => false): number {
+  let count = 0;
+  for (let key = nextDay(a); key <= b; key = nextDay(key)) {
+    if (!isWeekendKey(key) && !isDayOff(key)) count += 1;
   }
   return count;
 }
 
-export interface Quality {
-  /** One of the QUALITY_SCALE levels */
+export interface TimelinessPart {
+  /** Time-weighted score, 0-100 (not rounded) */
   percent: number;
-  /** Time-weighted average delay between the worklog's date and the day it was entered, in working days */
-  averageDelay: number;
+  seconds: number;
+  /** Worklogs (logged part) or days with missing time (not logged part) */
   count: number;
 }
 
-/** Average delay in working days (up to and including `maxDays`) and the quality it gives. */
+export interface Timeliness {
+  /** Logged and not yet logged time together, weighted by hours, 0-100 (not rounded) */
+  percent: number;
+  logged: TimelinessPart | null;
+  /** Time still missing on past working days, scored as if logged today */
+  missing: TimelinessPart | null;
+}
+
+/** Delay in working days (up to and including `maxDays`) and the score it gives. */
 export const QUALITY_SCALE: Array<{ maxDays: number; percent: number }> = [
   { maxDays: 3, percent: 100 },
   { maxDays: 5, percent: 90 },
@@ -155,32 +166,71 @@ export function qualityForDelay(averageDelay: number): number {
 export function qualityScaleText(): string {
   let previous = 0;
   return QUALITY_SCALE.map(({ maxDays, percent }) => {
-    const range = previous === 0 ? `up to ${maxDays}` : maxDays === Infinity ? `over ${previous}` : `${previous}–${maxDays}`;
+    // Delays are whole working days: 0–3, 4–5, 6–10, ...
+    const range = previous === 0 ? `0–${maxDays}` : maxDays === Infinity ? `over ${previous}` : `${previous + 1}–${maxDays}`;
     previous = maxDays;
     return `${range} working days: ${percent}%`;
   }).join("\n");
 }
 
 /**
- * Logging quality: the time-weighted average number of working days between a worklog's date and the
- * day it was entered in Jira, placed on QUALITY_SCALE. Worklogs entered in advance count as 0 days
- * late; worklogs without a creation date are skipped.
+ * Timeliness of the month: how soon your time gets into Jira.
+ * - Each worklog scores by its own delay (working days from its date to the day it was entered in Jira,
+ *   skipping weekends and absence days) on QUALITY_SCALE; entered in advance = 0 days late.
+ *   Worklogs without a creation date are skipped.
+ * - Time still missing on each past working day (norm minus that day's logged time; today, weekends and
+ *   absences excluded) scores as if it were logged today.
+ * - The result is the average of all these scores, weighted by hours.
  */
-export function worklogQuality(worklogs: Worklog[]): Quality | null {
-  let weight = 0;
-  let weightedDelay = 0;
-  let count = 0;
+export function timeliness({
+  worklogs,
+  month,
+  today,
+  normSeconds,
+  absences = []
+}: {
+  worklogs: Worklog[];
+  month: string;
+  today: string;
+  normSeconds: number;
+  absences?: Absence[];
+}): Timeliness | null {
+  const isDayOff = (key: string) => absences.some((item) => item.from <= key && key <= item.to);
+
+  let loggedWeight = 0;
+  let loggedScore = 0;
+  let loggedCount = 0;
   for (const worklog of worklogs) {
     const created = String(worklog.created || "").slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(created) || worklog.seconds <= 0) continue;
-    const delay = workingDaysBetween(worklog.date, created);
-    weight += worklog.seconds;
-    weightedDelay += delay * worklog.seconds;
-    count += 1;
+    loggedWeight += worklog.seconds;
+    loggedScore += qualityForDelay(workingDaysBetween(worklog.date, created, isDayOff)) * worklog.seconds;
+    loggedCount += 1;
   }
+
+  const loggedByDay = new Map<string, number>();
+  for (const worklog of worklogs) loggedByDay.set(worklog.date, (loggedByDay.get(worklog.date) || 0) + worklog.seconds);
+  let missingWeight = 0;
+  let missingScore = 0;
+  let missingDays = 0;
+  if (normSeconds > 0) {
+    for (const day of monthDays(month)) {
+      if (day.key >= today || day.isWeekend || isDayOff(day.key)) continue;
+      const missing = normSeconds - (loggedByDay.get(day.key) || 0);
+      if (missing <= 0) continue;
+      missingWeight += missing;
+      missingScore += qualityForDelay(workingDaysBetween(day.key, today, isDayOff)) * missing;
+      missingDays += 1;
+    }
+  }
+
+  const weight = loggedWeight + missingWeight;
   if (!weight) return null;
-  const averageDelay = weightedDelay / weight;
-  return { percent: qualityForDelay(averageDelay), averageDelay, count };
+  return {
+    percent: (loggedScore + missingScore) / weight,
+    logged: loggedWeight ? { percent: loggedScore / loggedWeight, seconds: loggedWeight, count: loggedCount } : null,
+    missing: missingWeight ? { percent: missingScore / missingWeight, seconds: missingWeight, count: missingDays } : null
+  };
 }
 
 /** A short motivating line for each quality level. */

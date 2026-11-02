@@ -28,7 +28,7 @@ import {
   MIN_WORKLOG_SECONDS,
   qualityScaleText,
   qualityMessage,
-  worklogQuality,
+  timeliness,
   worklogAllocation,
   topClients,
   planCellEdit,
@@ -322,7 +322,11 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
 
   // Indicators next to Refresh. Both use all of your worklogs in the month, whatever is filtered.
   const monthWorklogs = useMemo(() => (result?.sources || []).flatMap((source) => source.worklogs), [result]);
-  const quality = useMemo(() => worklogQuality(monthWorklogs), [monthWorklogs]);
+  const quality = useMemo(
+    () => timeliness({ worklogs: monthWorklogs, month, today, normSeconds, absences: result?.absences || [] }),
+    [monthWorklogs, month, today, normSeconds, result]
+  );
+  const qualityPercent = quality ? Math.round(quality.percent) : 0;
   const loggedToDate = monthWorklogs.filter((item) => item.date <= today).reduce((sum, item) => sum + item.seconds, 0);
   const toLog = normToDate - loggedToDate;
   /** A duration for the indicators: the number big, the "h" unit small (decimal format). */
@@ -699,18 +703,25 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
             {toLog <= 0 && <span className="indicatorLabel">{toLog === 0 ? "All posted" : "Ahead of target"}</span>}
           </div>
           <div
-            className={["indicator", quality ? qualityClass(quality.percent) : "neutral"].join(" ")}
+            className={["indicator", quality ? qualityClass(qualityPercent) : "neutral"].join(" ")}
             title={
+              "Timeliness: how soon your time gets into Jira. Each worklog scores by its delay (working days from its date " +
+              "to the day it was entered; weekends and absences skipped). Time still missing on past working days scores as " +
+              "if it were logged today. The scores are averaged by hours." +
               (quality
-                ? `Timeliness: how soon worklogs are posted after their date. On average ${quality.averageDelay.toFixed(1)} working day(s) later ` +
-                  `(weighted by time, ${quality.count} worklogs this month).`
-                : "Timeliness: how soon worklogs are posted after their date. No worklogs this month yet.") +
-              `\n\nAverage delay:\n${qualityScaleText()}`
+                ? (quality.logged
+                    ? `\n\nLogged: ${Math.round(quality.logged.percent)}% (${formatDuration(quality.logged.seconds, "jira")}, ${quality.logged.count} worklog${quality.logged.count === 1 ? "" : "s"})`
+                    : "") +
+                  (quality.missing
+                    ? `\nNot logged yet: ${Math.round(quality.missing.percent)}% if logged today (${formatDuration(quality.missing.seconds, "jira")} on ${quality.missing.count} day${quality.missing.count === 1 ? "" : "s"})`
+                    : "")
+                : "\n\nNothing logged or due this month yet.") +
+              `\n\nDelay → score:\n${qualityScaleText()}`
             }
           >
             <span className="indicatorCaption">Timeliness</span>
-            <span className="indicatorValue">{quality ? `${quality.percent}%` : "—"}</span>
-            {quality && <span className="indicatorLabel">{qualityMessage(quality.percent)}</span>}
+            <span className="indicatorValue">{quality ? `${qualityPercent}%` : "—"}</span>
+            {quality && <span className="indicatorLabel">{qualityMessage(qualityPercent)}</span>}
           </div>
         </div>
 
