@@ -444,7 +444,8 @@ describe("Timesheet grid", () => {
     await user.click(screen.getByRole("tab", { name: /About & updates/ }));
     await user.click(screen.getByRole("button", { name: /check for updates/i }));
     expect(await screen.findByText("Version 0.9.0 is available.")).toBeInTheDocument();
-    expect(screen.getByText(/Demo release notes/)).toBeInTheDocument();
+    expect(screen.queryByText(/What's new in/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Demo release notes/)).not.toBeInTheDocument();
     expect(screen.getByLabelText("Update available")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Download Timesheets-0.9.0-mac-universal.dmg/ }));
     expect(open).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/github.com\/sava-code\/Timesheets\/releases\/download\//));

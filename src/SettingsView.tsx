@@ -929,12 +929,6 @@ export function SettingsView({ data, onSaved, update, onUpdate: setUpdate, tabRe
                       Replace the app with the downloaded file; your settings and saved password are kept.
                       {update.releaseDate ? ` Released ${update.releaseDate}.` : ""}
                     </p>
-                    {update.releaseNotes?.trim() && (
-                      <div className="releaseNotes">
-                        <strong>What's new in {update.version}</strong>
-                        <pre>{update.releaseNotes.trim()}</pre>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>

@@ -1368,18 +1368,6 @@ label.check.standalone {
   overflow: visible;
 }
 
-.releaseNotes pre {
-  margin: 6px 0 0;
-  padding: 10px 12px;
-  max-height: 240px;
-  overflow: auto;
-  border-radius: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-family: inherit;
-  font-size: 13px;
-  white-space: pre-wrap;
-}
 
 @media (max-width: 760px) {
   .settingsBody {
