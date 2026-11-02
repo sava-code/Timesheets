@@ -146,6 +146,8 @@ export interface Timeliness {
   logged: TimelinessPart | null;
   /** Time still missing on past working days, scored as if logged today */
   missing: TimelinessPart | null;
+  /** Time was due but nothing at all is logged in the period: Timeliness is 0%. */
+  nothingLogged: boolean;
 }
 
 /** Delay in working days (up to and including `maxDays`) and the score it gives. */
@@ -181,6 +183,7 @@ export function qualityScaleText(): string {
  * - Time still missing on each past working day (norm minus that day's logged time; today, weekends and
  *   absences excluded) scores as if it were logged today.
  * - The result is the average of all these scores, weighted by hours.
+ * - Nothing logged in the period although time was due: 0%.
  */
 export function timeliness({
   worklogs,
@@ -226,8 +229,10 @@ export function timeliness({
 
   const weight = loggedWeight + missingWeight;
   if (!weight) return null;
+  const nothingLogged = !worklogs.some((worklog) => worklog.seconds > 0);
   return {
-    percent: (loggedScore + missingScore) / weight,
+    percent: nothingLogged ? 0 : (loggedScore + missingScore) / weight,
+    nothingLogged,
     logged: loggedWeight ? { percent: loggedScore / loggedWeight, seconds: loggedWeight, count: loggedCount } : null,
     missing: missingWeight ? { percent: missingScore / missingWeight, seconds: missingWeight, count: missingDays } : null
   };

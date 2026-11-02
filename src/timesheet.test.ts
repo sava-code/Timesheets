@@ -184,6 +184,25 @@ describe("timeliness", () => {
     expect(timeliness({ worklogs, month: "2026-10", today: "2026-10-09", normSeconds: 8 * 3600 })!.missing!.percent).toBe(70);
   });
 
+  it("is 0% when nothing is logged in the period although time is due", () => {
+    // Yesterday's 8h missing alone would score 100% "if logged today", but nothing is logged at all.
+    const result = timeliness({ worklogs: [], month: "2026-10", today: "2026-10-02", normSeconds: 8 * 3600 })!;
+    expect(result.percent).toBe(0);
+    expect(result.nothingLogged).toBe(true);
+    expect(result.missing).toEqual({ percent: 100, seconds: 8 * 3600, count: 1 });
+    // Nothing due yet (first day of the month) and nothing logged: no value.
+    expect(timeliness({ worklogs: [], month: "2026-10", today: "2026-10-01", normSeconds: 8 * 3600 })).toBeNull();
+    // Any logged time: the normal average.
+    const some = timeliness({
+      worklogs: [logged("2026-10-01", "2026-10-01T18:00:00.000+0200", 3600)],
+      month: "2026-10",
+      today: "2026-10-02",
+      normSeconds: 8 * 3600
+    })!;
+    expect(some.nothingLogged).toBe(false);
+    expect(some.percent).toBe(100);
+  });
+
   it("leaves absences out of the missing time and of the delays", () => {
     const vacationDays = ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"];
     const worklogs = fullMonth([...vacationDays, "2026-10-09"]);

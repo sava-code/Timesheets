@@ -709,7 +709,8 @@ export function TimesheetView({ data, onOpenSettings }: Props) {
               "to the day it was entered; weekends and absences skipped). Time still missing on past working days scores as " +
               "if it were logged today. The scores are averaged by hours." +
               (quality
-                ? (quality.logged
+                ? (quality.nothingLogged ? "\n\nNothing is logged this month although time is due: 0%." : "") +
+                  (quality.logged
                     ? `\n\nLogged: ${Math.round(quality.logged.percent)}% (${formatDuration(quality.logged.seconds, "jira")}, ${quality.logged.count} worklog${quality.logged.count === 1 ? "" : "s"})`
                     : "") +
                   (quality.missing
